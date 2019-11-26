@@ -13,6 +13,10 @@ class Node:
         self.kad_alpha = 3
         self.kad_beta = 3
 
+        self.buckets = dict({int: ['Node']})
+        for i in range(KAD_ID_LEN):
+            self.buckets[i] = []
+
         if ip is None:
             self.ip = random_ip()
         else:
@@ -25,6 +29,27 @@ class Node:
 
     def distance(self, node_b: 'Node') -> int:
         return self.kad_id ^ node_b.kad_id
+
+    def get_bucket_index(self, node_b: 'Node') -> int:
+        """Returns bucket_index for node, starting from 0"""
+        dist = self.distance(node_b)
+        for i in range(KAD_ID_LEN):
+            if pow(2, i) <= dist < pow(2, i + 1):
+                return i
+
+    def random_address_from_bucket(self, bucket: int) -> str:
+        return random.choice(self.buckets[bucket]).ip
+
+    def update_bucket(self, node_b: 'Node'):
+        #TODO unfinished
+        if self.kad_id == node_b.kad_id:
+            return
+
+        ips = [i.ip for i in self.buckets[self.get_bucket_index(node_b)]] # list of all ip addr in bucket
+        if node_b.ip in ips:
+            #TODO
+        #self.buckets[self.get_bucket_index(node_b)].append()
+
 
 
 def distance(node_a: Node, node_b: Node) -> int:
