@@ -10,6 +10,9 @@ numpy = "*"
 networkx = "*"
 scipy = "*"
 matplotlib = "*"
+simpy = "*"
+pykka = "*"
+self = "*"
 
 [requires]
 python_version = "3.8"
