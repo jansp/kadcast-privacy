@@ -15,12 +15,13 @@ KAD_PACKET_SIZE: int = 1433
 # TODO ignore messages from self to self
 
 class Node:
-    def __init__(self, ip: ipaddress.IPv4Address = None, kad_id: int = None, env = None):
+    def __init__(self, ip: ipaddress.IPv4Address = None, kad_id: int = None, env = None, ip_to_node: dict = None):
         self.kad_k = 20
         self.kad_alpha = 3
         self.kad_beta = 3
         self.env = env
         self.connection = Connection(env, 10)
+        self.ip_to_node = ip_to_node
 
         self.buckets = dict({int: [(ipaddress.IPv4Address, int)]})
         for i in range(KAD_ID_LEN):
@@ -78,14 +79,18 @@ class Node:
     def to_ip_id_pair(self) -> Tuple[ipaddress.IPv4Address, int]:
         return self.ip, self.kad_id
 
-
-    def send_ping(self, ip: int, ip_to_node: dict):
+    def send_msg(self, msg: BaseMessage, ip: int, delay: int = 10):
         # TODO if node not reachable
-        node = ip_to_node[ip]
+        node = self.ip_to_node[ip]
 
-        msg = Ping(self)
-        yield self.env.timeout(10)
+        yield self.env.timeout(delay)
         node.connection.put(msg)
+
+    def send_ping(self, ip: int):
+       self.env.process(self.send_msg(Ping(self), ip))
+
+    def send_pong(self, ip: int):
+       self.env.process(self.send_msg(Pong(self), ip))
 
     def broadcast_message(self):
         pass
@@ -93,12 +98,22 @@ class Node:
 
     def handle_ping(self, ip_id_pair: (ipaddress.IPv4Address, int)) -> None:
         self.update_bucket(ip_id_pair)
+        self.send_pong(ip_id_pair[0])
 
     def handle_pong(self, ip_id_pair: (ipaddress.IPv4Address, int)) -> None:
         self.update_bucket(ip_id_pair)
 
     def handle_find_node(self, ip_id_pair: (ipaddress.IPv4Address, int), target_id: int) -> None:
-        pass
+        self.update_bucket(ip_id_pair)
+        #TODO
+        #     std::map<uint64_t, bentry_t> kClosest = FindKClosestNodes(targetID);
+        #
+        #     std::vector<bentry_t> nodeList;
+        #     for (auto e : kClosest) {
+        #         nodeList.push_back(e.second);
+        #     }
+        #
+        #     SendNodesMessage(senderAddr, targetID, nodeList);
 
     def handle_nodes(self, ip_id_pair: (ipaddress.IPv4Address, int), target_id: int, node_list) -> None:
         pass
@@ -117,24 +132,24 @@ class Node:
             if isinstance(msg, Ping):
                 #print('Node %d received PING from %s at %d' % (self.kad_id, msg.sender.kad_id, self.env.now))
                 self.handle_ping((msg.sender.ip, msg.sender.kad_id))
-                #yield self.env.timeout(10)
-                msg.sender.connection.put(Pong(self))
 
             if isinstance(msg, Pong):
                 #print('Node %d received PONG from %s at %d' % (self.kad_id, msg.sender.kad_id, self.env.now))
                 self.handle_pong((msg.sender.ip, msg.sender.kad_id))
 
             if isinstance(msg, FindNode):
+                # TODO
                 #print('Node %d received FINDNODE from %s at %d' % (self.kad_id, msg.sender.kad_id, self.env.now))
-                self.handle_find_node()
+                self.handle_find_node((msg.sender.ip, msg.sender.kad_id), target_id)
 
-            #if message == 'FINDNODE':
-            #    pass
             #if message == 'NODES':
+            # TODO
             #    pass
             #if message == 'BROADCAST':
+            # TODO
             #    pass
             #if message == 'REQUEST':
+            # TODO
             #    pass
 
 
