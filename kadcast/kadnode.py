@@ -1,10 +1,10 @@
 import random
 import ipaddress
-import simpy
 from typing import Tuple
-from messages import *
+from kadmessages import *
+from helpers import Connection
 
-KAD_ID_LEN: int = 160
+KAD_ID_LEN: int = 4
 KAD_PING_TIMEOUT: float = 10.0
 KAD_BUCKET_REFRESH_TIMEOUT: float = 3600.0
 KAD_PORT: int = 8334
@@ -12,23 +12,7 @@ KAD_PACKET_SIZE: int = 1433
 
 # TODO global seed
 # TODO ports?
-
-class Connection(object):
-    """This class represents the propagation through a cable."""
-    def __init__(self, env, delay):
-        self.env = env
-        self.delay = delay
-        self.store = simpy.Store(env)
-
-    def latency(self, value):
-        yield self.env.timeout(self.delay)
-        self.store.put(value)
-
-    def put(self, value):
-        self.env.process(self.latency(value))
-
-    def get(self):
-        return self.store.get()
+# TODO ignore messages from self to self
 
 class Node:
     def __init__(self, ip: ipaddress.IPv4Address = None, kad_id: int = None, env = None):
@@ -94,6 +78,15 @@ class Node:
     def to_ip_id_pair(self) -> Tuple[ipaddress.IPv4Address, int]:
         return self.ip, self.kad_id
 
+
+    def send_ping(self, ip: int, ip_to_node: dict):
+        # TODO if node not reachable
+        node = ip_to_node[ip]
+
+        msg = Ping(self)
+        yield self.env.timeout(10)
+        node.connection.put(msg)
+
     def broadcast_message(self):
         pass
         # TODO chunks needed? -> no(t yet)
@@ -119,33 +112,31 @@ class Node:
     def handle_message(self):
         while True:
             msg = yield self.connection.get()
+            print("Node %d with IP %s received %s message from node %d with IP %s at time %d" % (self.kad_id, self.ip, msg, msg.sender.kad_id, msg.sender.ip, self.env.now))
 
             if isinstance(msg, Ping):
-                print('Node %d received PING from %s at %d' % (self.kid, msg.sender.kid, env.now))
-                self.handle_ping((msg.sender.ip, msg.sender.kid))
-                yield env.timeout(10)
+                #print('Node %d received PING from %s at %d' % (self.kad_id, msg.sender.kad_id, self.env.now))
+                self.handle_ping((msg.sender.ip, msg.sender.kad_id))
+                #yield self.env.timeout(10)
                 msg.sender.connection.put(Pong(self))
 
             if isinstance(msg, Pong):
-                print('Node %d received PONG from %s at %d' % (self.kid, msg.sender.kid, env.now))
-                self.handle_pong((msg.sender.ip, msg.sender.kid))
+                #print('Node %d received PONG from %s at %d' % (self.kad_id, msg.sender.kad_id, self.env.now))
+                self.handle_pong((msg.sender.ip, msg.sender.kad_id))
 
             if isinstance(msg, FindNode):
-                print('Node %d received FINDNODE from %s at %d' % (self.kid, msg.sender.kid, env.now))
+                #print('Node %d received FINDNODE from %s at %d' % (self.kad_id, msg.sender.kad_id, self.env.now))
                 self.handle_find_node()
 
+            #if message == 'FINDNODE':
+            #    pass
+            #if message == 'NODES':
+            #    pass
+            #if message == 'BROADCAST':
+            #    pass
+            #if message == 'REQUEST':
+            #    pass
 
-
-
-
-            if message == 'FINDNODE':
-                pass
-            if message == 'NODES':
-                pass
-            if message == 'BROADCAST':
-                pass
-            if message == 'REQUEST':
-                pass
 
     # TODO findinbucket ip -> bucketid? idx in bucket?
 def distance(id_a: int, id_b: int) -> int:

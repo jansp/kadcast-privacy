@@ -22,10 +22,17 @@ class BaseMessage:
         self.sender = sender
         self.data = data
 
+    def __str__(self):
+        return "UNDEFINED"
+
 class Ping(BaseMessage):
+    def __str__(self):
+        return "PING"
     pass
 
 class Pong(BaseMessage):
+    def __str__(self):
+        return "PONG"
     pass
 
 class FindNode(BaseMessage):
