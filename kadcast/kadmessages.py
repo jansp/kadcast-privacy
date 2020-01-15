@@ -39,9 +39,14 @@ class Nodes(BaseMessage):
     #TODO
 
 class Broadcast(BaseMessage):
+    def __init__(self, sender, block, height):
+        #BaseMessage.__init__(self, sender, data)
+        self.sender = sender
+        self.block = block
+        self.height = height
+
     def __str__(self):
         return "BROADCAST"
-    #TODO
 
 class Request(BaseMessage):
     def __str__(self):

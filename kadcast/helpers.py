@@ -15,3 +15,11 @@ class Connection(object):
 
     def get(self):
         return self.store.get()
+
+class Block:
+    def __init__(self, b_id: int, data=None):
+        self.b_id = b_id
+        self.data = data
+
+    def __str__(self):
+        return "BLOCK " + str(self.b_id)

@@ -2,29 +2,29 @@ import random
 import ipaddress
 from typing import Tuple
 from kadmessages import *
-from helpers import Connection
+from helpers import Connection, Block
 
 KAD_ID_LEN: int = 4
-KAD_PING_TIMEOUT: float = 10.0
-KAD_BUCKET_REFRESH_TIMEOUT: float = 3600.0
-KAD_PORT: int = 8334
-KAD_PACKET_SIZE: int = 1433
 
-# TODO global seed
-# TODO ports?
-# TODO ignore messages from self to self
 
 class Node:
-    def __init__(self, ip: ipaddress.IPv4Address = None, kad_id: int = None, env = None, ip_to_node: dict = None):
+    def __init__(self, ip: ipaddress.IPv4Address = None, kad_id: int = None, env = None, ip_to_node: dict = None, seed = None):
         self.kad_k = 20
         self.kad_alpha = 3
         self.kad_beta = 3
         self.env = env
         self.connection = Connection(env, 10)
         self.ip_to_node = ip_to_node
-        self.node_lookup_map = dict({int: (ipaddress.IPv4Address, int, bool)}) # distance/or id? <- TODO check? : (ip. id, mark_queried)
+        self.node_lookup_map = {} # dict({int: (ipaddress.IPv4Address, int, bool)}) # distance/or id? <- TODO check? : (ip. id, mark_queried)
+        self.done_blocks = {} # block_id: is_done
+        self.max_seen_height = {} # max seen height of block_id, int:int
+        self.seen_broadcasts = {} # int : bool
+        self.blocks = {} # int : Block
 
-        self.buckets = dict({int: [(ipaddress.IPv4Address, int)]}) # bucket: [(ip,id)]
+        random.seed(seed)
+
+        self.buckets = {} # bucket: [(ip,id)]
+
 
         for i in range(KAD_ID_LEN):
             self.buckets[i] = []
@@ -81,9 +81,9 @@ class Node:
     def to_ip_id_pair(self) -> Tuple[ipaddress.IPv4Address, int]:
         return self.ip, self.kad_id
 
-    def find_k_closest_nodes(self, target_id: int) -> dict({ int: (ipaddress.IPv4Address, int) }):
+    def find_k_closest_nodes(self, target_id: int) -> dict({int: (ipaddress.IPv4Address, int)}):
         #TODO check correctness
-        closest_nodes = dict({ int: (ipaddress.IPv4Address, int) }) # distance: (ip, id)
+        closest_nodes = {} # dict({int: (ipaddress.IPv4Address, int)}) # distance: (ip, id)
         target_bucket = self.id_to_bucket_index(target_id)
 
         for elem in self.buckets[target_bucket]:
@@ -96,33 +96,91 @@ class Node:
                 cur_bucket = self.buckets[i]
                 for elem in cur_bucket:
                     dist = distance(target_id, elem[1])
-                    if dist not in closest_nodes.keys():
+                    if dist not in closest_nodes.keys(): #TODO really correct?
                         closest_nodes[dist] = elem
-                    if len(closest_nodes) > self.kad_k:
+                    if len(closest_nodes) > self.kad_k: #TODO really correct?
                         del closest_nodes[max(closest_nodes.keys())]
 
         return closest_nodes
 
+    def init_broadcast(self, block: 'Block'):
+        startheight = KAD_ID_LEN
+        self.done_blocks[block.b_id] = True
+        self.blocks[block.b_id] = block
+
+        if block.b_id not in self.max_seen_height:
+            self.max_seen_height[block.b_id] = startheight
+
+        self.broadcast_block(block)
+
+    def broadcast_block(self, block: 'Block'):
+        height = self.max_seen_height[block.b_id]
+        del self.max_seen_height[block.b_id]
+
+        if height < 0:
+            return
+
+        bucket_idx = height - 1
+        while True:
+            if bucket_idx < 0 or bucket_idx >= KAD_ID_LEN:
+                break
+
+
+            if len(self.buckets[bucket_idx]) == 0:
+                bucket_idx -= 1
+                continue
+
+            #print("%d broadcasting at height %d" % (self.kad_id, bucket_idx))
+
+            if len(self.buckets[bucket_idx]) < self.kad_beta:
+                to_query = len(self.buckets[bucket_idx])
+            else:
+                to_query = self.kad_beta
+
+            to_query = 1  # TODO remove this line after testing
+
+            all_adr = [elem[0] for elem in self.buckets[bucket_idx]]
+            adr_list = random.sample(all_adr, to_query)
+            while self.ip in adr_list:
+                adr_list = random.sample(all_adr, to_query)
+
+            for adr in adr_list:
+                self.send_block(adr, block, bucket_idx)
+
+            bucket_idx -= 1
+
+
+    def send_block(self, adr, block, height):
+        # create chunks here if needed later
+        self.send_broadcast_msg(adr, block, height)
+
     def send_msg(self, msg: BaseMessage, ip: int, delay: int = 10):
-        # TODO if node not reachable
+        # TODO timeout/if node not reachable
+        if ip == self.ip:
+            return
+
+        print("%d: SENT %s %s -> %s (%d -> %d)" % (
+          self.env.now, msg, self.ip, ip, self.kad_id, self.ip_to_node[ip].kad_id))
+
         node = self.ip_to_node[ip]
 
         yield self.env.timeout(delay)
         node.connection.put(msg)
 
-    def send_ping(self, ip: int):
-       self.env.process(self.send_msg(Ping(self), ip))
+    def send_ping(self, ip: ipaddress.IPv4Address):
+        self.env.process(self.send_msg(Ping(self), ip))
 
-    def send_pong(self, ip: int):
-       self.env.process(self.send_msg(Pong(self), ip))
+    def send_pong(self, ip: ipaddress.IPv4Address):
+        self.env.process(self.send_msg(Pong(self), ip))
 
-    def send_nodes(self, ip: int, target_id: int, node_list: [(ipaddress.IPv4Address, int)]):
+    def send_nodes(self, ip: ipaddress.IPv4Address, target_id: int, node_list: [(ipaddress.IPv4Address, int)]):
         #TODO correct?
         self.env.process(self.send_msg(Nodes(self, target_id, node_list), ip))
 
-    def broadcast_message(self):
-        pass
-        # TODO chunks needed? -> no(t yet)
+    def send_broadcast_msg(self, ip: ipaddress.IPv4Address, block: 'Block', height: int):
+        self.env.process(self.send_msg(Broadcast(self, block, height), ip))
+
+
 
     def handle_ping(self, ip_id_pair: (ipaddress.IPv4Address, int)) -> None:
         self.update_bucket(ip_id_pair)
@@ -165,10 +223,10 @@ class Node:
 
             # TODO check if correct
             if len(query_map) > self.kad_k:
-                if dist != max(query_map):
+                if dist != max(query_map): #TODO really correct?
                     query_all = False
 
-                del query_map[max(query_map)]
+                del query_map[max(query_map)] #TODO really correct?
 
         self.node_lookup_map[target_id] = query_map
         self.lookup_node(target_id, query_all)
@@ -177,14 +235,32 @@ class Node:
     def handle_request(self, ip_id_pair: (ipaddress.IPv4Address, int), ):
         pass
 
-    def handle_data(self, ip_id_pair: (ipaddress.IPv4Address, int), data, height: int) -> None:
-        pass
+    def handle_broadcast(self, ip_id_pair: (ipaddress.IPv4Address, int), block: 'Block', height: int) -> None:
+        if block.b_id in self.seen_broadcasts and self.seen_broadcasts[block.b_id]:
+            return
+
+        self.seen_broadcasts[block.b_id] = True
+
+        if block.b_id in self.blocks:
+            return
+
+        if block.b_id not in self.max_seen_height:
+            self.max_seen_height[block.b_id] = height
+        else:
+            self.max_seen_height[block.b_id] = max(height, self.max_seen_height[block.b_id])
+
+        self.blocks[block.b_id] = block
+        self.done_blocks[block.b_id] = True
+
+        self.broadcast_block(block)
 
     def handle_message(self):
         while True:
             msg = yield self.connection.get()
-            print("Node %d with IP %s received %s message from node %d with IP %s at time %d" % (self.kad_id, self.ip, msg, msg.sender.kad_id, msg.sender.ip, self.env.now))
-
+            if msg.sender.ip == self.ip:
+                return
+            #print("Node %d with IP %s received %s message from node %d with IP %s at time %d" % (self.kad_id, self.ip, msg, msg.sender.kad_id, msg.sender.ip, self.env.now))
+            print("%d: RECEIVED %s %s <- %s (%d <- %d)" % (self.env.now, msg, self.ip, msg.sender.ip, self.kad_id, msg.sender.kad_id))
             if isinstance(msg, Ping):
                 #print('Node %d received PING from %s at %d' % (self.kad_id, msg.sender.kad_id, self.env.now))
                 self.handle_ping((msg.sender.ip, msg.sender.kad_id))
@@ -200,16 +276,16 @@ class Node:
             if isinstance(msg, Nodes):
                 self.handle_nodes((msg.sender.ip, msg.sender.kad_id), msg.target_id, msg.node_list)
 
-            #if message == 'BROADCAST':
-            # TODO
-            #    pass
+            if isinstance(msg, Broadcast):
+                self.handle_broadcast((msg.sender.ip, msg.sender.kad_id), msg.block, msg.height)
+
             #if message == 'REQUEST':
             # TODO
             #    pass
 
 
     def init_lookup(self, target_id: int):
-        # TODO CHECK correctness, esp. if distance or kad_id as key in lookup_map, kad_id more likely
+        # TODO CHECK correctness
         if target_id in self.node_lookup_map.keys():
             return
 
@@ -268,7 +344,6 @@ class Node:
         del self.node_lookup_map[target_id]
 
 
-    # TODO findinbucket ip -> bucketid? idx in bucket?
 def distance(id_a: int, id_b: int) -> int:
     return id_a ^ id_b
 
