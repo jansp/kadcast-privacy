@@ -25,7 +25,7 @@ rand_kids = random.sample(range((kadnode.KAD_ID_LEN**2)), NUM_NODES)
 rand_kids = range(kadnode.KAD_ID_LEN**2)
 
 for i in range(NUM_NODES):
-    n = kadnode.Node(rand_ips[i], rand_kids[i], env, ip_to_node, seed = RANDOM_SEED)
+    n = kadnode.Node(rand_ips[i], rand_kids[i], env, ip_to_node, seed=RANDOM_SEED)
     ip_to_node[rand_ips[i]] = n
     id_to_node[rand_kids[i]] = n
     nodes.append(rand_ips[i])
@@ -40,14 +40,18 @@ for node in ip_to_node:
 
 rand_node = random.choice(nodes)
 env.run(2000)
-ip_to_node[rand_ips[0]].init_broadcast(Block(1, "BLOCK NUMMER 1"))
-#ip_to_node[rand_ips[1]].init_broadcast(Block(2, "BLOCK NUMMER 2"))
+ip_to_node[rand_ips[0]].init_broadcast(Block(0, "BLOCK NUMMER 0"))
+ip_to_node[rand_ips[1]].init_broadcast(Block(1, "BLOCK NUMMER 1"))
 env.run(env.now+1000)
 #print_at(env.now, "Node " + str(ip_to_node[rand_node].kad_id) + " Buckets: " + str(ip_to_node[rand_node].buckets))
 #print_at(env.now, [node.kad_id for node in ip_to_node.values()])
-#for n in ip_to_node:
-#    print("Node %d received blocks: %s " % (ip_to_node[n].kad_id, list(ip_to_node[n].blocks.keys())))
+n = id_to_node[0]
+print("Node %d received blocks: %s " % (n.kad_id, list(n.blocks)))
 
 
-#print(id_to_node[0].buckets)
+k_closest = id_to_node[0].find_k_closest_nodes(3)
+#print(id_to_node[0].id_to_bucket_index(1))
+print(k_closest)
+#print(len(k_closest))
+print(id_to_node[3].buckets)
 env.run(until=SIM_DURATION)

@@ -1,5 +1,6 @@
 #TODO make better use of inheritance?
 
+
 class BaseMessage:
     def __init__(self, sender, data=None):
         self.sender = sender
@@ -8,13 +9,16 @@ class BaseMessage:
     def __str__(self):
         return "UNDEFINED"
 
+
 class Ping(BaseMessage):
     def __str__(self):
         return "PING"
 
+
 class Pong(BaseMessage):
     def __str__(self):
         return "PONG"
+
 
 class FindNode(BaseMessage):
     def __init__(self, sender, target_id: int):
@@ -24,7 +28,7 @@ class FindNode(BaseMessage):
 
     def __str__(self):
         return "FINDNODE"
-    #TODO
+
 
 class Nodes(BaseMessage):
     #TODO assert correct nodelist format
@@ -36,7 +40,7 @@ class Nodes(BaseMessage):
 
     def __str__(self):
         return "NODES"
-    #TODO
+
 
 class Broadcast(BaseMessage):
     def __init__(self, sender, block, height):
@@ -47,6 +51,7 @@ class Broadcast(BaseMessage):
 
     def __str__(self):
         return "BROADCAST"
+
 
 class Request(BaseMessage):
     def __str__(self):

@@ -8,8 +8,8 @@ KAD_ID_LEN: int = 4
 
 
 class Node:
-    def __init__(self, ip: ipaddress.IPv4Address = None, kad_id: int = None, env = None, ip_to_node: dict = None, seed = None):
-        self.kad_k = 20
+    def __init__(self, ip: ipaddress.IPv4Address = None, kad_id: int = None, env=None, ip_to_node: dict = None, seed=None):
+        self.kad_k = 6 # TODO reset to 20 after testing
         self.kad_alpha = 3
         self.kad_beta = 3
         self.env = env
@@ -64,7 +64,7 @@ class Node:
             return
 
         bucket = self.buckets[self.id_to_bucket_index(id_b)]
-        ips = [i[0] for i in bucket] # list of all ip addr in bucket
+        ips = [i[0] for i in bucket]  # list of all ip addr in bucket
         if ip_b in ips:
             #TODO optimize to don't double check list
             idx = ips.index(ip_b)
@@ -82,13 +82,12 @@ class Node:
         return self.ip, self.kad_id
 
     def find_k_closest_nodes(self, target_id: int) -> dict({int: (ipaddress.IPv4Address, int)}):
-        #TODO check correctness
         closest_nodes = {} # dict({int: (ipaddress.IPv4Address, int)}) # distance: (ip, id)
         target_bucket = self.id_to_bucket_index(target_id)
 
         for elem in self.buckets[target_bucket]:
             dist = distance(target_id, elem[1])
-            closest_nodes[dist] = elem
+            closest_nodes[dist] = (elem[0], elem[1])
 
         remain_n = self.kad_k - len(closest_nodes)
         if remain_n > 0:
@@ -96,9 +95,9 @@ class Node:
                 cur_bucket = self.buckets[i]
                 for elem in cur_bucket:
                     dist = distance(target_id, elem[1])
-                    if dist not in closest_nodes.keys(): #TODO really correct?
-                        closest_nodes[dist] = elem
-                    if len(closest_nodes) > self.kad_k: #TODO really correct?
+                    if dist not in closest_nodes.keys():
+                        closest_nodes[dist] = (elem[0], elem[1])
+                    if len(closest_nodes) > self.kad_k:
                         del closest_nodes[max(closest_nodes.keys())]
 
         return closest_nodes
@@ -173,8 +172,10 @@ class Node:
     def send_pong(self, ip: ipaddress.IPv4Address):
         self.env.process(self.send_msg(Pong(self), ip))
 
+    def send_find_node(self, ip: ipaddress.IPv4Address, target_id: int):
+        self.env.process(self.send_msg(FindNode(self, target_id), ip))
+
     def send_nodes(self, ip: ipaddress.IPv4Address, target_id: int, node_list: [(ipaddress.IPv4Address, int)]):
-        #TODO correct?
         self.env.process(self.send_msg(Nodes(self, target_id, node_list), ip))
 
     def send_broadcast_msg(self, ip: ipaddress.IPv4Address, block: 'Block', height: int):
@@ -193,7 +194,7 @@ class Node:
         self.update_bucket(ip_id_pair)
         k_closest = self.find_k_closest_nodes(target_id)
 
-        node_list = k_closest.values()
+        node_list = [k_closest[k] for k in sorted(k_closest)]  # sort from close to far
         self.send_nodes(ip_id_pair[0], target_id, node_list)
 
 
@@ -215,7 +216,7 @@ class Node:
 
             dist = distance(elem[1], target_id)
             if dist in query_map:
-                return # node already known
+                return  # node already known
 
             n = (elem[0], elem[1], False)
             query_map[dist] = n
@@ -290,7 +291,7 @@ class Node:
             return
 
         k_closest = self.find_k_closest_nodes(target_id)
-        query_dict = dict({ int: (ipaddress.IPv4Address, int, bool) })
+        query_dict = {}  # dict({int: (ipaddress.IPv4Address, int, bool)})
 
         for key in k_closest:
             query_dict[key] = (k_closest[key][0], k_closest[key][1], False)
@@ -309,7 +310,7 @@ class Node:
 
         if target_id in [i[0] for i in self.buckets[target_bucket]]:
             self.terminate_lookup(target_id)
-            return # found in local bucket
+            return  # found in local bucket
 
         query_map = self.node_lookup_map[target_id]
 

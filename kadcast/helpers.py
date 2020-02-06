@@ -1,6 +1,7 @@
 import simpy
 
 class Connection(object):
+    # TODO implement latency in a better way
     def __init__(self, env, delay):
         self.env = env
         self.delay = delay
@@ -15,6 +16,7 @@ class Connection(object):
 
     def get(self):
         return self.store.get()
+
 
 class Block:
     def __init__(self, b_id: int, data=None):
