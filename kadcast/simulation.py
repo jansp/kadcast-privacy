@@ -6,7 +6,7 @@ from helpers import Block
 
 RANDOM_SEED = 42
 SIM_DURATION = 10000000
-NUM_NODES = 16
+NUM_NODES = 10 # max 16 at cur id_len
 
 
 ip_to_node = {}
@@ -40,9 +40,9 @@ for node in ip_to_node:
 
 rand_node = random.choice(nodes)
 env.run(2000)
-ip_to_node[rand_ips[0]].init_broadcast(Block(0, "BLOCK NUMMER 0"))
-ip_to_node[rand_ips[1]].init_broadcast(Block(1, "BLOCK NUMMER 1"))
-env.run(env.now+1000)
+#ip_to_node[rand_ips[0]].init_broadcast(Block(0, "BLOCK NUMMER 0"))
+#ip_to_node[rand_ips[1]].init_broadcast(Block(1, "BLOCK NUMMER 1"))
+#env.run(env.now+1000)
 #print_at(env.now, "Node " + str(ip_to_node[rand_node].kad_id) + " Buckets: " + str(ip_to_node[rand_node].buckets))
 #print_at(env.now, [node.kad_id for node in ip_to_node.values()])
 n = id_to_node[0]
@@ -51,7 +51,24 @@ print("Node %d received blocks: %s " % (n.kad_id, list(n.blocks)))
 
 k_closest = id_to_node[0].find_k_closest_nodes(3)
 #print(id_to_node[0].id_to_bucket_index(1))
-print(k_closest)
+#print(k_closest)
 #print(len(k_closest))
-print(id_to_node[3].buckets)
+#print(id_to_node[3].buckets)
+
+
+#id_to_node[0].init_lookup(0)
+
+n = kadnode.Node(ipaddress.ip_address(123), 15, env, ip_to_node, seed=RANDOM_SEED)
+ip_to_node[ipaddress.ip_address(123)] = n
+id_to_node[999] = n
+nodes.append(ipaddress.ip_address(123))
+env.process(n.handle_message())
+
+n.bootstrap([rand_ips[0], rand_ips[1], rand_ips[2]])
+env.run(until=env.now+200)
+
+n.init_lookup(15)
+env.run(until=env.now+2000)
+print(n.buckets)
+
 env.run(until=SIM_DURATION)

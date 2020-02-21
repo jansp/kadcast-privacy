@@ -85,9 +85,10 @@ class Node:
         closest_nodes = {} # dict({int: (ipaddress.IPv4Address, int)}) # distance: (ip, id)
         target_bucket = self.id_to_bucket_index(target_id)
 
-        for elem in self.buckets[target_bucket]:
-            dist = distance(target_id, elem[1])
-            closest_nodes[dist] = (elem[0], elem[1])
+        if target_bucket is not None:
+            for elem in self.buckets[target_bucket]:
+                dist = distance(target_id, elem[1])
+                closest_nodes[dist] = (elem[0], elem[1])
 
         remain_n = self.kad_k - len(closest_nodes)
         if remain_n > 0:
@@ -195,6 +196,7 @@ class Node:
         k_closest = self.find_k_closest_nodes(target_id)
 
         node_list = [k_closest[k] for k in sorted(k_closest)]  # sort from close to far
+        #print(node_list)
         self.send_nodes(ip_id_pair[0], target_id, node_list)
 
 
@@ -206,13 +208,16 @@ class Node:
         query_map = self.node_lookup_map[target_id]
 
         query_all = True
+        #print(node_list)
         for elem in node_list:
+            #print("ELEM")
+            #print(elem)
             self.update_bucket(elem)
 
-            if elem[1] == target_id:
+            #if elem[1] == target_id:
                 # found node id
-                del self.node_lookup_map[target_id]
-                return
+                #del self.node_lookup_map[target_id]
+                #return
 
             dist = distance(elem[1], target_id)
             if dist in query_map:
@@ -285,15 +290,20 @@ class Node:
             #    pass
 
 
+
+    # lookuP: query a of k closest, do again till k closest doesnt change
+
     def init_lookup(self, target_id: int):
         # TODO CHECK correctness
         if target_id in self.node_lookup_map.keys():
             return
 
         k_closest = self.find_k_closest_nodes(target_id)
+        #print(k_closest)
         query_dict = {}  # dict({int: (ipaddress.IPv4Address, int, bool)})
 
         for key in k_closest:
+            #print(key)
             query_dict[key] = (k_closest[key][0], k_closest[key][1], False)
 
         self.node_lookup_map[target_id] = query_dict
@@ -303,14 +313,17 @@ class Node:
 
     def lookup_node(self, target_id: int, query_all = False):
         #TODO check correctness
-        if target_id in self.node_lookup_map:
-            return
+
+        #if target_id in self.node_lookup_map:
+        #    print("this is it")
+        #    return
 
         target_bucket = self.id_to_bucket_index(target_id)
 
-        if target_id in [i[0] for i in self.buckets[target_bucket]]:
-            self.terminate_lookup(target_id)
-            return  # found in local bucket
+        if target_bucket is not None:
+            if target_id in [i[0] for i in self.buckets[target_bucket]]:
+                self.terminate_lookup(target_id)
+                return  # found in local bucket
 
         query_map = self.node_lookup_map[target_id]
 
@@ -321,21 +334,31 @@ class Node:
             if not query_all and to_query == 0:
                 break
 
-            (node_addr, node_id, queried) = elem
+            print(elem)
+            print(query_map[elem])
+            print(self.node_lookup_map)
+            (node_addr, node_id, queried) = query_map[elem]
+            print(node_id)
 
             if queried:
                 n_queried += 1
                 continue
 
+            dist = distance(target_id, node_id)
+
             self.send_find_node(node_addr, target_id)
-            self.mark_queried(target_id, node_id)
+            # print("Mark node as queried...")
+            self.node_lookup_map[target_id][dist] = (node_addr, node_id, True)
+            #print(self.node_lookup_map[target_id][dist])
+
+
             n_queried += 1
             to_query -= 1
 
         if n_queried < self.kad_alpha:
             return
 
-        self.env.timeout(10000).callbacks.append(lambda _: self.terminate_lookup(target_id))
+        self.env.timeout(1000).callbacks.append(lambda _: self.terminate_lookup(target_id))
 
 
     def terminate_lookup(self, target_id: int):
@@ -344,6 +367,16 @@ class Node:
             return
         del self.node_lookup_map[target_id]
 
+
+    def bs(self, ip):
+        self.send_ping(ip)
+        yield self.env.timeout(35)
+
+    def bootstrap(self, ips):
+        for ip in ips:
+            self.send_ping(ip)
+
+        self.env.timeout(1000).callbacks.append(lambda _: self.init_lookup(self.kad_id))
 
 def distance(id_a: int, id_b: int) -> int:
     return id_a ^ id_b
