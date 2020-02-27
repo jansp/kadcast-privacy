@@ -22,7 +22,8 @@ class Node:
         self.seen_broadcasts = {}  # int : bool
         self.blocks = {}  # int : Block
         self.continue_lookup = env.event()
-        self.block_source = {}  # int : ipaddress.IPv4Address
+        self.block_source = {}  # ipaddress.IPv4Address: int
+        self.block_timestamps = {}
 
         seed = seed_handler.load_seed()
         random.seed(seed)
@@ -57,8 +58,11 @@ class Node:
             if pow(2, i) <= dist < pow(2, i + 1):
                 return i
 
-    def random_address_from_bucket(self, bucket: int) -> str:
-        return random.choice(self.buckets[bucket])[0]
+    def random_address_from_bucket(self, bucket: int):
+        try:
+            return random.choice(self.buckets[bucket])[0]
+        except:
+            return self.kad_id
 
     def update_bucket(self, ip_id_pair: (ipaddress.IPv4Address, int)):
         assert isinstance(ip_id_pair, tuple) and list(map(type, ip_id_pair)) == [ipaddress.IPv4Address, int], "ip_id_pair is not of type (ipaddress.IPv4Address, int): %r" % ip_id_pair
@@ -256,7 +260,7 @@ class Node:
 
         #if query_all:
             #print("ALL %d" % self.kad_id)
-        #    self.env.timeout(10000).callbacks.append(lambda _: self.terminate_lookup(target_id))
+        #self.env.timeout(10000).callbacks.append(lambda _: self.terminate_lookup(target_id))
         #yield lookup_proc
 
 
@@ -272,6 +276,7 @@ class Node:
 
         (ip, id) = ip_id_pair
         self.block_source[ip] = block.b_id
+        self.block_timestamps[block.b_id] = self.env.now
 
         if block.b_id in self.blocks:
             return
@@ -402,8 +407,15 @@ class Node:
             self.send_ping(ip)
 
         self.init_lookup(self.kad_id)
+        #self.env.timeout(10000).callbacks.append(lambda _: self.refresh_nodes())
         #self.env.timeout(1000).callbacks.append(lambda _: self.init_lookup(self.kad_id))
         #self.env.timeout(50000).callbacks.append(lambda _: self.init_lookup(self.kad_id))
+
+
+    def refresh_nodes(self):
+        for bucket in self.buckets:
+            ip = self.random_address_from_bucket(bucket)
+            #self.send_find_node(ip, self.kad_id)
 
 
 def distance(id_a: int, id_b: int) -> int:

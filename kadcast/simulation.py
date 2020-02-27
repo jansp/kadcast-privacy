@@ -37,7 +37,7 @@ for ip in ip_to_node:
     ip_to_node[ip].bootstrap([ip_list[0]])
     env.run(env.now + 3000)
 
-
+#id_to_node[50].bootstrap([ip_list[0]])
 
 true_sources = {}
 for ip in ip_list:
@@ -53,14 +53,15 @@ env.run(until=SIM_DURATION)
 
 
 spy_mapping = [id_to_node[i].block_source for i in spies]
+block_timestamps = [id_to_node[i].block_timestamps for i in spies]
 #print(spies)
 #print(spy_mapping[0])
 #print(true_sources)
-est = estimators.FirstSpyEstimator(spy_mapping, true_sources, NUM_NODES)
+est = estimators.FirstSpyEstimator(spy_mapping, block_timestamps, true_sources, NUM_SPIES)
 print("Precision: %f" % est.p)
 print("Recall: %f" % est.r)
+#print(block_timestamps)
+
 #for ip in ip_to_node:
 #    print("Node %d received blocks: " % ip_to_node[ip].kad_id, end='')
 #    print(list(ip_to_node[ip].blocks))
-
-
