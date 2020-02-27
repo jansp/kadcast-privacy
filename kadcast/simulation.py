@@ -2,73 +2,65 @@ import simpy
 import ipaddress
 import random
 import kadnode
+import seed_handler
 from helpers import Block
+import estimators
 
 RANDOM_SEED = 42
-SIM_DURATION = 10000000
-NUM_NODES = 10 # max 16 at cur id_len
+SIM_DURATION = 2000000
+NUM_NODES = 256
+FRACTION_SPIES = 0.3
 
-
+NUM_SPIES = int(FRACTION_SPIES*NUM_NODES)
 ip_to_node = {}
 id_to_node = {}
-nodes = [] # list of ip adr
 
 random.seed(RANDOM_SEED)
+seed_handler.save_seed(RANDOM_SEED)
 env = simpy.Environment()
 
 
-def print_at(time, str):
-    env.timeout(time).callbacks.append(lambda _: print(str))
-
-rand_ips = list(map(ipaddress.ip_address, random.sample(range(4294967295), NUM_NODES)))
-rand_kids = random.sample(range((kadnode.KAD_ID_LEN**2)), NUM_NODES)
-rand_kids = range(kadnode.KAD_ID_LEN**2)
+ip_list = list(map(ipaddress.ip_address, random.sample(range(4294967295), NUM_NODES)))
+id_list = list(range(NUM_NODES))
+spies = sorted(random.sample(id_list, NUM_SPIES))
 
 for i in range(NUM_NODES):
-    n = kadnode.Node(rand_ips[i], rand_kids[i], env, ip_to_node, seed=RANDOM_SEED)
-    ip_to_node[rand_ips[i]] = n
-    id_to_node[rand_kids[i]] = n
-    nodes.append(rand_ips[i])
+    n = kadnode.Node(ip_list[i], id_list[i], env, ip_to_node)
+    ip_to_node[ip_list[i]] = n
+    id_to_node[id_list[i]] = n
     env.process(n.handle_message())
 
+for ip in ip_to_node:
+    ip_to_node[ip_list[0]].send_ping(ip)
 
-for node in ip_to_node:
-    env.run(random.randint(env.now+1,env.now+50))
-    for node2 in ip_to_node:
-        ip_to_node[node].send_ping(node2)
-
-
-rand_node = random.choice(nodes)
-env.run(2000)
-#ip_to_node[rand_ips[0]].init_broadcast(Block(0, "BLOCK NUMMER 0"))
-#ip_to_node[rand_ips[1]].init_broadcast(Block(1, "BLOCK NUMMER 1"))
-#env.run(env.now+1000)
-#print_at(env.now, "Node " + str(ip_to_node[rand_node].kad_id) + " Buckets: " + str(ip_to_node[rand_node].buckets))
-#print_at(env.now, [node.kad_id for node in ip_to_node.values()])
-n = id_to_node[0]
-print("Node %d received blocks: %s " % (n.kad_id, list(n.blocks)))
+for ip in ip_to_node:
+    ip_to_node[ip].bootstrap([ip_list[0]])
+    env.run(env.now + 3000)
 
 
-k_closest = id_to_node[0].find_k_closest_nodes(3)
-#print(id_to_node[0].id_to_bucket_index(1))
-#print(k_closest)
-#print(len(k_closest))
-#print(id_to_node[3].buckets)
 
+true_sources = {}
+for ip in ip_list:
+    true_sources[ip] = []
 
-#id_to_node[0].init_lookup(0)
-
-n = kadnode.Node(ipaddress.ip_address(123), 15, env, ip_to_node, seed=RANDOM_SEED)
-ip_to_node[ipaddress.ip_address(123)] = n
-id_to_node[999] = n
-nodes.append(ipaddress.ip_address(123))
-env.process(n.handle_message())
-
-n.bootstrap([rand_ips[0], rand_ips[1], rand_ips[2]])
-env.run(until=env.now+200)
-
-n.init_lookup(15)
-env.run(until=env.now+2000)
-print(n.buckets)
-
+env.run(env.now + 200000)
+id_to_node[id_list[0]].init_broadcast(Block(1, data="BLOCK 1"))
+true_sources[ip_list[0]].append(1)
+env.run(env.now + 200000)
+id_to_node[id_list[0]].init_broadcast(Block(2, data="BLOCK 2"))
+true_sources[ip_list[0]].append(2)
 env.run(until=SIM_DURATION)
+
+
+spy_mapping = [id_to_node[i].block_source for i in spies]
+#print(spies)
+#print(spy_mapping[0])
+#print(true_sources)
+est = estimators.FirstSpyEstimator(spy_mapping, true_sources, NUM_NODES)
+print("Precision: %f" % est.p)
+print("Recall: %f" % est.r)
+#for ip in ip_to_node:
+#    print("Node %d received blocks: " % ip_to_node[ip].kad_id, end='')
+#    print(list(ip_to_node[ip].blocks))
+
+
