@@ -13,6 +13,8 @@ matplotlib = "*"
 simpy = "*"
 pykka = "*"
 self = "*"
+pandas = "*"
+tk = "*"
 
 [requires]
 python_version = "3.8"

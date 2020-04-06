@@ -5,14 +5,14 @@ from typing import Tuple
 from kadmessages import *
 from helpers import Connection, Block
 
-KAD_ID_LEN: int = 8
+KAD_ID_LEN: int = 160
 
 
 class Node:
     def __init__(self, ip: ipaddress.IPv4Address = None, kad_id: int = None, env=None, ip_to_node: dict = None):
         self.kad_k = 20
         self.kad_alpha = 3
-        self.kad_beta = 3
+        self.kad_beta = 1
         self.env = env
         self.connection = Connection(env, 10)
         self.ip_to_node = ip_to_node
@@ -21,9 +21,10 @@ class Node:
         self.max_seen_height = {}  # max seen height of block_id, int:int
         self.seen_broadcasts = {}  # int : bool
         self.blocks = {}  # int : Block
-        self.continue_lookup = env.event()
         self.block_source = {}  # ipaddress.IPv4Address: int
         self.block_timestamps = {}
+        self.non_empty_buckets = set()
+        self.continue_broadcast = env.event()
 
         seed = seed_handler.load_seed()
         random.seed(seed)
@@ -71,8 +72,10 @@ class Node:
         if self.kad_id == id_b:
             return
 
-        bucket = self.buckets[self.id_to_bucket_index(id_b)]
+        bucket_idx = self.id_to_bucket_index(id_b)
+        bucket = self.buckets[bucket_idx]
         ips = [i[0] for i in bucket]  # list of all ip addr in bucket
+        self.non_empty_buckets.add(bucket_idx)
         if ip_b in ips:
             # TODO optimize to don't double check list
             idx = ips.index(ip_b)
@@ -138,7 +141,7 @@ class Node:
                 bucket_idx -= 1
                 continue
 
-            #print("%d broadcasting at height %d" % (self.kad_id, bucket_idx))
+            #print("%d: Node %d broadcasting block %d at height %d" % (self.env.now, self.kad_id, block.b_id, bucket_idx))
 
             if len(self.buckets[bucket_idx]) < self.kad_beta:
                 to_query = len(self.buckets[bucket_idx])
@@ -147,17 +150,26 @@ class Node:
 
             all_adr = [elem[0] for elem in self.buckets[bucket_idx]]
             adr_list = random.sample(all_adr, to_query)
+            #print("Receivers: ", end='')
+            #print(list(map(lambda x: self.ip_to_node[x].kad_id, adr_list)))
             while self.ip in adr_list:
                 adr_list = random.sample(all_adr, to_query)
 
+
             for adr in adr_list:
-                self.send_block(adr, block, bucket_idx)
+                #self.env.timeout((10-height)*100).callbacks.append(lambda _: self.send_block(adr, block, bucket_idx))
+                self.env.process(self.send_block(adr, block, bucket_idx))
+
+
+                #self.env.process(self.env.timeout(100))
+                #yield self.env.timeout(100)
+                #self.env.run(self.env.now + 100)
 
             bucket_idx -= 1
 
 
     def send_block(self, adr, block, height):
-        # create chunks here if needed later
+        yield self.env.timeout(100)
         self.send_broadcast_msg(adr, block, height)
 
     def send_msg(self, msg: BaseMessage, ip: int, delay: int = 10):
@@ -165,8 +177,8 @@ class Node:
         if ip == self.ip:
             return
 
-        print("%d: SENT %s %s -> %s (%d -> %d)" % (
-          self.env.now, msg, self.ip, ip, self.kad_id, self.ip_to_node[ip].kad_id))
+        #print("%d: SENT %s %s -> %s (%d -> %d)" % (
+        #  self.env.now, msg, self.ip, ip, self.kad_id, self.ip_to_node[ip].kad_id))
 
         node = self.ip_to_node[ip]
 
@@ -205,17 +217,17 @@ class Node:
         #print(node_list)
         self.send_nodes(ip_id_pair[0], target_id, node_list)
 
-    def lookup_process(self, target_id, query_all):
-        while True:
-            self.lookup_node(target_id, query_all)
-            #print("Waiting to continue...")
-            yield self.continue_lookup
-            #print("CONTINUE")
-            self.continue_lookup = self.env.event()
+    # def lookup_process(self, target_id, query_all):
+    #     while True:
+    #         self.lookup_node(target_id, query_all)
+    #         #print("Waiting to continue...")
+    #         yield self.continue_lookup
+    #         #print("CONTINUE")
+    #         self.continue_lookup = self.env.event()
 
     def handle_nodes(self, ip_id_pair: (ipaddress.IPv4Address, int), target_id: int, node_list: [(ipaddress.IPv4Address, int)]) -> None:
         if target_id not in self.node_lookup_map:
-            print("NOT LOOKING FOR THIS NODE, DISCARDING NODES MESSAGE!")
+            #print("NOT LOOKING FOR THIS NODE, DISCARDING NODES MESSAGE!")
             return
 
         query_map = self.node_lookup_map[target_id]
@@ -254,9 +266,9 @@ class Node:
                 del query_map[max(query_map)]
 
         self.node_lookup_map[target_id] = query_map
-        #self.lookup_node(target_id, query_all)
+        self.lookup_node(target_id, query_all)
 
-        lookup_proc = self.env.process(self.lookup_process(target_id, query_all))
+        #lookup_proc = self.env.process(self.lookup_process(target_id, query_all))
 
         #if query_all:
             #print("ALL %d" % self.kad_id)
@@ -268,7 +280,7 @@ class Node:
         pass
 
     def handle_broadcast(self, ip_id_pair: (ipaddress.IPv4Address, int), block: 'Block', height: int) -> None:
-        #print("%d RECEIVED BROADCAST AT HEIGHT %d " % (self.kad_id, height))
+        #print("%d; %d RECEIVED BROADCAST FROM %d AT HEIGHT %d " % (self.env.now, self.kad_id, ip_id_pair[1], height))
         if block.b_id in self.seen_broadcasts and self.seen_broadcasts[block.b_id]:
             return
 
@@ -302,7 +314,7 @@ class Node:
 
             #self.update_bucket((msg.sender.ip, msg.sender.kad_id))
             #print("Node %d with IP %s received %s message from node %d with IP %s at time %d" % (self.kad_id, self.ip, msg, msg.sender.kad_id, msg.sender.ip, self.env.now))
-            print("%d: RECEIVED %s %s <- %s (%d <- %d)" % (self.env.now, msg, self.ip, msg.sender.ip, self.kad_id, msg.sender.kad_id))
+            #print("%d: RECEIVED %s %s <- %s (%d <- %d)" % (self.env.now, msg, self.ip, msg.sender.ip, self.kad_id, msg.sender.kad_id))
             if isinstance(msg, Ping):
                 self.handle_ping((msg.sender.ip, msg.sender.kad_id))
 
@@ -327,13 +339,13 @@ class Node:
     def init_lookup(self, target_id: int):
         #print("%d: INIT LOOKUP %d -> %d" % (self.env.now, self.kad_id, target_id))
         if target_id in self.node_lookup_map:
-            print("LOOKUP ALREADY IN PROCESS!")
+            #print("LOOKUP ALREADY IN PROCESS!")
             return
 
         k_closest = self.find_k_closest_nodes(target_id)
         query_dict = {}  # dict({int: (ipaddress.IPv4Address, int, bool)})
 
-        for key in k_closest:
+        for key in sorted(k_closest):
             query_dict[key] = (k_closest[key][0], k_closest[key][1], False)
 
         self.node_lookup_map[target_id] = query_dict
@@ -349,10 +361,11 @@ class Node:
         #self.env.timeout(50000).callbacks.append(lambda _: self.terminate_lookup(target_id))
         #print(self.node_lookup_map)
         if target_id not in self.node_lookup_map:
-            print("Not looking for this node, initialize with init_lookup! NODE %d SEARCHING FOR %d" % (self.kad_id, target_id))
+            #print("Not looking for this node, initialize with init_lookup! NODE %d SEARCHING FOR %d" % (self.kad_id, target_id))
             return
 
         target_bucket = self.id_to_bucket_index(target_id)
+        #print(target_bucket)
 
         if target_bucket is not None:
             if target_id in [i[1] for i in self.buckets[target_bucket]]:
@@ -389,33 +402,48 @@ class Node:
         if n_queried < self.kad_k:
             #self.init_lookup(self.kad_id)
             #print("CONTINUE LOOKUP %d/%d" % (n_queried,self.kad_k))
-            self.env.timeout(1000).callbacks.append(lambda _: self.continue_lookup.succeed())
+            #self.env.timeout(1000).callbacks.append(lambda _: self.continue_lookup.succeed())
             #self.lookup_node(target_id)
             return
 
         self.env.timeout(10000).callbacks.append(lambda _: self.terminate_lookup(target_id))
 
-
     def terminate_lookup(self, target_id: int):
         if target_id not in self.node_lookup_map:
             return
         del self.node_lookup_map[target_id]
-        print("%d: NODE %d TERMINATED LOOKUP OF NODE %d" % (self.env.now, self.kad_id, target_id))
+        #print("%d: NODE %d TERMINATED LOOKUP OF NODE %d" % (self.env.now, self.kad_id, target_id))
 
     def bootstrap(self, ips):
         for ip in ips:
             self.send_ping(ip)
 
         self.init_lookup(self.kad_id)
-        #self.env.timeout(10000).callbacks.append(lambda _: self.refresh_nodes())
         #self.env.timeout(1000).callbacks.append(lambda _: self.init_lookup(self.kad_id))
-        #self.env.timeout(50000).callbacks.append(lambda _: self.init_lookup(self.kad_id))
+        self.env.timeout(3000).callbacks.append(lambda _: self.refresh_buckets())
+        self.env.timeout(300000).callbacks.append(lambda _: self.refresh_buckets())
+        self.env.timeout(400000).callbacks.append(lambda _: self.refresh_buckets())
 
 
-    def refresh_nodes(self):
-        for bucket in self.buckets:
-            ip = self.random_address_from_bucket(bucket)
-            #self.send_find_node(ip, self.kad_id)
+    def refresh_buckets(self):
+        min_max_list_all = [(2**i, 2**(i+1)) for i in range(KAD_ID_LEN)]
+        empty_buckets = set(range(0, KAD_ID_LEN)).difference(self.non_empty_buckets)
+        min_max_list = [min_max_list_all[idx] for idx in empty_buckets]
+
+
+        for minmax in min_max_list:
+            id_to_find = self.kad_id ^ random.randrange(*minmax)
+            if id_to_find in self.node_lookup_map:
+                continue
+
+            #print("Node %d looking for id %d" % (self.kad_id,id_to_find))
+            self.init_lookup(id_to_find)
+
+    #def main_loop(self):
+    #    while True:
+    #        yield self.env.timeout(45)
+    #        self.continue_broadcast.succeed()
+    #        self.continue_broadcast = self.env.event()
 
 
 def distance(id_a: int, id_b: int) -> int:

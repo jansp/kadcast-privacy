@@ -6,8 +6,10 @@ class FirstSpyEstimator:
         self.r = 0.0
         num = 0
         #print(true_sources)
+        #print(spy_mapping)
         for spy_data in spy_mapping:
             for ip in spy_data:
+                #print(spy_data)
                 times = [i[spy_data[ip]] for i in block_timestamps]
                 if times.index(min(times)) == spy_mapping.index(spy_data):
                     num += 1
