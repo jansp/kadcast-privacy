@@ -1,24 +1,35 @@
 \section{Introduction}
 When talking about privacy issues of blockchains or Distributed Ledger Technologies, the
 focus of the analysis is often on the consensus and application layers of the blockchain.
-Another major factor for a comprehensive analysis of the privacy of blockchains is also
-the network layer or network overlay which defines how messages are passed between participants of the network.
-On this layer many privacy sensitive informations like the IP addresses of users and the connections between the peers
-of the network is used and can potentially be leaked or recorded by malicious parties.
+Another major factor for a comprehensive analysis of the privacy and anonymity properties
+of blockchains is the network layer or network overlay which defines how messages are passed
+between participants of the network. On this layer many privacy sensitive informations
+like the IP addresses of users and the connections between the peers of the network
+is used and can potentially be leaked or recorded by malicious parties.
 In this report we will do a privacy analysis of the newly developed, Kademlia based,
-P2P overlay Kadcast that can be used for efficient message passing in Bitcoin or other blockchain based technologies.
+P2P overlay Kadcast that can be used for efficient message passing
+e.g. in Bitcoin or other blockchain based technologies.
+
+Kadcast was developed as an efficient spreading protocol to propagate blocks in blockchain based infrastructures.
+The key difference to e.g. bitcoin like message spreading (also called ``gossiping")
+is that a structured P2P overlay is used that allows a coverage of the whole network with minimal messages,
+i.e. a protocol is used that makes sure every peer receive a distinct message only once
+(or $<n$ times, to account for dropped messages). %TODO besser erklären
 
 hier evtl. kurz kadcast beschreiben, welche idee das auf privacy zu untersuchen und warum überhaupt, etc.
 
 \section{Simulation Setup}
+For our simulation we used the discrete event simulation framework ``simpy''
 - discrete event simulation, simpy
+- no dropped messages/churn -> beta set to 1
+
 
 \section{Attacker Model}
 The Kadcast protocol comes with inherit properties that mitigate different attacks
 and allow us to concisely define the means of an attacker if we assume those properties hold.
 
-The main factor that mitigates attacks on the network overlay is that participants are
-not allowed to choose their position in the network freely, it is instead bound to the IP address of the peer.
+The main factor that mitigates attacks on the network layer is that participants are
+not allowed to choose their position in the network freely and it is instead bound to the IP address of the peer.
 This property makes it considerably harder for attackers to perform eclipse attacks or benefit in other ways from
 a freely chosen position in the network overlay.
 
@@ -48,7 +59,7 @@ network(besseres Wort?) information and information infered by combining the obs
 
 In our analysis we fed these informations to an estimator [s.fanti]
 
-- only known options of malicious nodes: (d)dos, aggressive pinging
+- only known options of malicious(byzantine) nodes: (d)dos, aggressive pinging
 
 We therefore chose to 
 
