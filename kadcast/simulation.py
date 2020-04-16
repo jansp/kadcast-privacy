@@ -8,7 +8,7 @@ import estimators
 
 RANDOM_SEED = 42
 SIM_DURATION = 200000000
-NUM_NODES = 2**8
+NUM_NODES = 20
 FRACTION_SPIES = 0.3
 
 NUM_SPIES = int(FRACTION_SPIES*NUM_NODES)
@@ -45,7 +45,7 @@ for ip in ip_list:
 env.run(env.now + 30000000)
 
 
-num_blocks = 18
+num_blocks = 20000000
 benign_nodes = list(set(id_list) - set(spies))
 for block in range(num_blocks):
     sender = random.choice(benign_nodes)
@@ -60,7 +60,7 @@ env.run(until=SIM_DURATION)
 
 #spy_mapping = [id_to_node[i].block_source for i in spies]
 #block_timestamps = [id_to_node[i].block_timestamps for i in spies]
-#est = estimators.FirstSpyEstimator(spy_mapping, block_timestamps, true_sources, NUM_SPIES)
+#est = estimators.FirstSpyEstimator(spy_mapping, block_timestamps, true_sources)
 
 #print("Precision: %f" % est.p)
 #print("Recall: %f" % est.r)

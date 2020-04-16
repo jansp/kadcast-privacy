@@ -25,15 +25,24 @@ For our simulation we used the discrete event simulation framework ``simpy''
 
 
 \section{Attacker Model}
-The Kadcast protocol comes with inherit properties that mitigate different attacks
-and allow us to concisely define the means of an attacker if we assume those properties hold.
+- common adv. models are: botnet, supernode.
+- adv. can: create outbound connections(?), disobey protocol, record traffic (incl. src ip, timestamp, ...)
+- attack is network wide, not focused on single peer/target
+- goal: create TX-IP mapping
+- another assumption: broadcast height can be ``hidden'' (to certain extend)/this information is not available for attacker
+
+The overall goal of the attacker is to deanonymize users in the network.
+More precisely, the attacker wants to map certain transactions to certain IP addresses.
+
+The Kadcast protocol comes with inherit security properties that mitigate different kind of attacks
+and allow us to concisely(/better) define the means of an attacker if we assume those properties hold [].
 
 The main factor that mitigates attacks on the network layer is that participants are
-not allowed to choose their position in the network freely and it is instead bound to the IP address of the peer.
-This property makes it considerably harder for attackers to perform eclipse attacks or benefit in other ways from
-a freely chosen position in the network overlay.
+not allowed to choose their position in the network overlay freely, because it is bound to the IP address of a peer [].
+This property makes it considerably harder for attackers to perform eclipse attacks [] or benefit in other ways from
+a freely chosen position (TODO which other ways?).
 
-We currently only know of two ways a byzantine actor could attack or observe the network differently than
+We currently only know of two ways an actor that disobeys the protocol could attack or observe the network differently than
 an ``honest but curious" attacker.
 
 Those are namely a denial of service attack or so called ``aggressive pinging" [bib], a technique where malicious nodes flood
@@ -42,12 +51,12 @@ peer in its peer list(/bucket list), but has yet to refresh its peer list(bucket
 the benign node would replace the unresponsive node in its peer list with the new malicious node.
 %react to the ping by exchanging the unresponsive node for the new malicious node in its peer list.
 
+Because of the limited possibilities an attacker has and because our simulation setup (TODO explain further...)
+we excluded both of these attack vectors from our evalution and instead focused solely on an ``honest but curious" attacker.
 
-We excluded both of these attack vectors from our evalution (TODO why?) and instead focused solely on an ``honest but curious" attacker (TODO why?).
-
-In our scenario the attacker controls a certain share or fraction of nodes in the network (so called ``spies'').
+In our setup the attacker controls a certain share(/fraction) of nodes of the network (so called ``spies'').
 These spies all behave indistinguishable to benign nodes from an outsider's perspective(/obey the protocol).
-The attacker logs all messages their nodes receive(/relay), including timestamps and senders of the messages.
+The attacker logs all messages their nodes receive(/relay), including timestamps and senders(/IP adr) of the messages.
 
 From this point on we have to differentiate between two different kind of attackers: \\
 1. An attacker that has no knowledge of the network topology \\

@@ -132,6 +132,7 @@ class Node:
             return
 
         bucket_idx = height - 1
+        d = 1
         while True:
             if bucket_idx < 0 or bucket_idx >= KAD_ID_LEN:
                 break
@@ -158,7 +159,9 @@ class Node:
 
             for adr in adr_list:
                 #self.env.timeout((10-height)*100).callbacks.append(lambda _: self.send_block(adr, block, bucket_idx))
-                self.env.process(self.send_block(adr, block, bucket_idx))
+                #self.env.process(self.send_block(adr, block, bucket_idx))
+                self.send_block(adr, block, bucket_idx, d)
+                d += 1
 
 
                 #self.env.process(self.env.timeout(100))
@@ -168,9 +171,9 @@ class Node:
             bucket_idx -= 1
 
 
-    def send_block(self, adr, block, height):
-        yield self.env.timeout(100)
-        self.send_broadcast_msg(adr, block, height)
+    def send_block(self, adr, block, height, d):
+        #yield self.env.timeout(100)
+        self.send_broadcast_msg(adr, block, height, delay=100*d)
 
     def send_msg(self, msg: BaseMessage, ip: int, delay: int = 10):
         # TODO timeout/if node not reachable
@@ -197,8 +200,9 @@ class Node:
     def send_nodes(self, ip: ipaddress.IPv4Address, target_id: int, node_list: [(ipaddress.IPv4Address, int)]):
         self.env.process(self.send_msg(Nodes(self, target_id, node_list), ip))
 
-    def send_broadcast_msg(self, ip: ipaddress.IPv4Address, block: 'Block', height: int):
-        self.env.process(self.send_msg(Broadcast(self, block, height), ip))
+    def send_broadcast_msg(self, ip: ipaddress.IPv4Address, block: 'Block', height: int, delay=10):
+        self.env.process(self.send_msg(Broadcast(self, block, height), ip, delay))
+        #print("%d: Node %d sent TX %d" % (self.env.now, self.kad_id, block.b_id))
 
 
 
@@ -280,14 +284,15 @@ class Node:
         pass
 
     def handle_broadcast(self, ip_id_pair: (ipaddress.IPv4Address, int), block: 'Block', height: int) -> None:
-        #print("%d; %d RECEIVED BROADCAST FROM %d AT HEIGHT %d " % (self.env.now, self.kad_id, ip_id_pair[1], height))
+        #print("%d: %d RECEIVED BROADCAST %d FROM %d AT HEIGHT %d " % (self.env.now, self.kad_id, block.b_id, ip_id_pair[1], height))
         if block.b_id in self.seen_broadcasts and self.seen_broadcasts[block.b_id]:
             return
 
         self.seen_broadcasts[block.b_id] = True
 
         (ip, id) = ip_id_pair
-        self.block_source[ip] = block.b_id
+        #self.block_source[ip] = block.b_id
+        self.block_source[block.b_id] = ip
         self.block_timestamps[block.b_id] = self.env.now
 
         if block.b_id in self.blocks:
