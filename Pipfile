@@ -15,6 +15,7 @@ pykka = "*"
 self = "*"
 pandas = "*"
 tk = "*"
+hashlib = "*"
 
 [requires]
 python_version = "3.8"

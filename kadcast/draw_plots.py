@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 
 
-df = pd.read_csv("firstspy_mul.csv")
+df = pd.read_csv("csv/firstspy_mul.csv")
 #df = df[["TXS", "NODES", "FRAC_SPIES", "PRECISION", "RECALL", "KAD_K", "ID_LEN"]]
 df = df[["TXS", "NODES", "FRAC_SPIES", "PRECISION", "RECALL"]]
 
@@ -36,6 +36,8 @@ for n in df["NODES"].unique():
             p_std_dev.append(std["PRECISION"])
             r_std_dev.append(std["RECALL"])
 
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.0])
 
         y1 = p_means
         x1 = df_n_tx["FRAC_SPIES"].unique()
@@ -45,7 +47,7 @@ for n in df["NODES"].unique():
         #y1 = df_n_tx["PRECISION"]
         #x1 = df_n_tx["FRAC_SPIES"]
         #ax.plot(x1, y1, label="Precision")
-        ax.errorbar(x1, y1, yerr=p_std_dev, fmt='^', label="Precision")
+        ax.errorbar(x1+0.007, y1, yerr=p_std_dev, fmt='o', label="Precision")
         #print(p_means)
 
 
@@ -57,7 +59,7 @@ for n in df["NODES"].unique():
         #x2 = df_n_tx["FRAC_SPIES"]
         # plotting the line 2 points
         #ax.plot(x2, y2, label="Recall")
-        ax.errorbar(x2, y2, yerr=r_std_dev, fmt='^', label="Recall")
+        ax.errorbar(x2-0.007, y2, yerr=r_std_dev, fmt='o', label="Recall")
 
         # naming the y axis
         plt.ylabel('Precision/Recall')
@@ -72,6 +74,6 @@ for n in df["NODES"].unique():
 
         # function to show the plot
         #plt.show()
-        plt.savefig("plots/plot_200_%d.png" % txs)
+        plt.savefig("plots/plot_%d_%d.png" % (n, txs))
         fig.clf()
         #plt.cla(ax)

@@ -5,7 +5,7 @@ from typing import Tuple
 from kadmessages import *
 from helpers import Connection, Block
 
-KAD_ID_LEN: int = 160
+KAD_ID_LEN: int = 4
 
 
 class Node:
@@ -173,7 +173,7 @@ class Node:
 
     def send_block(self, adr, block, height, d):
         #yield self.env.timeout(100)
-        self.send_broadcast_msg(adr, block, height, delay=100*d)
+        self.send_broadcast_msg(adr, block, height, delay=10*d)
 
     def send_msg(self, msg: BaseMessage, ip: int, delay: int = 10):
         # TODO timeout/if node not reachable
