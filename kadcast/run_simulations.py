@@ -21,9 +21,9 @@ KAD_KS = range(20, 60)
 seed_handler.save_seed(RANDOM_SEED)
 
 
-NUM_NODES = [16]
-NUM_TXS = [1]
-num_samples = 2
+NUM_NODES = [100]
+NUM_TXS = [10]
+num_samples = 20
 #kad_ks = [20]
 
 
@@ -46,55 +46,61 @@ for s_i in range(num_samples):
                 ip_list = list(map(ipaddress.ip_address, random.sample(range(4294967295), num_nodes)))
                 id_bytes = [(int(ip)).to_bytes(20, byteorder='big') for ip in ip_list]
                 id_list_n = [int(hashlib.sha1(bytestr).hexdigest(), 16) for bytestr in id_bytes]
-                id_list_n = [5,4,3,2,1,0,15,14,13,12,11,10,9,8,7,6]
+                #id_list_n = [5,4,3,2,1,0,15,14,13,12,11,10,9,8,7,6]
                 #print(len(id_list_n) == len(set(id_list_n)))
 
 
-                id_list = list(range(num_nodes))
+                #id_list = list(range(num_nodes))
                 #id_list_n = id_list
 
-                spies = sorted(random.sample(id_list, num_spies))
+                spies = random.sample(id_list_n, num_spies)
+                benign_nodes = list(set(id_list_n) - set(spies))
+                #spies = sorted(random.sample(id_list, num_spies))
 
                 for i in range(num_nodes):
-                    n = kadnode.Node(ip_list[i], id_list_n[i], env, ip_to_node)
+                    n = kadnode.Node(ip_list[i], id_list_n[i], env, ip_to_node, use_dandelion=True)
                     ip_to_node[ip_list[i]] = n
                     id_to_node[id_list_n[i]] = n
                     env.process(n.handle_message())
 
+                ### START NETWORK STABILIZING PHASE
                 env.run(env.now + 1000)
                 for ip in ip_to_node:
                     ip_to_node[ip].bootstrap([ip_list[0]])
                     env.run(env.now + 1000)
 
-                true_sources = {}
-                #for ip in ip_list:
-                #    true_sources[ip] = []
 
                 env.run(env.now + 30000000)
+                ### FINISH NETWOK STABILIZING PHASE
 
-                #num_blocks = 1
-                benign_nodes = list(set(id_list) - set(spies))
 
                 senders = random.sample(benign_nodes, num_blocks)
-                for n_id in senders:
-                    true_sources[ip_list[n_id]] = []
 
+                # initialize empty list of sent broadcasts for every broadcasting node
+                true_sources = {}
+                for id_n in senders:
+                    true_sources[ip_list[id_list_n.index(id_n)]] = []
 
+                ### START BROADCAST PHASE
                 for block in range(num_blocks):
                     #sender = random.choice(benign_nodes)
                     sender = senders[block]
-                    id_to_node[id_list_n[sender]].init_broadcast(Block(block))
-                    true_sources[ip_list[sender]].append(block)
+                    id_to_node[sender].init_broadcast(Block(block))
+                    true_sources[ip_list[id_list_n.index(sender)]].append(block)
                     env.run(env.now + 20000)
 
                 env.run()
+                ### FINISH BROADCAST PHASE
 
+                ### START DEANONYMIZATION ATTACK PHASE
                 #spy_mapping = [id_to_node[i].block_source for i in spies]
                 spy_mapping = {}
                 block_timestamps = {}
-                for i in spies:
-                    spy_mapping[i] = id_to_node[id_list_n[i]].block_source
-                    block_timestamps[i] = id_to_node[id_list_n[i]].block_timestamps
+                tx_maps = {} # SPY_ID: { BLOCK_ID: (ip, timestamp) }
+                for id_n in spies:
+                    spy_mapping[id_n] = id_to_node[id_n].block_source
+                    block_timestamps[id_n] = id_to_node[id_n].block_timestamps
+                    tx_maps[id_n] = id_to_node[id_n].block_map
                     #print(id_to_node[i].blocks)
                     #print(id_to_node[i].block_source)
                     #print(id_to_node[i].block_timestamps)
@@ -108,7 +114,10 @@ for s_i in range(num_samples):
                 #print(block_timestamps)
                 #spy_mapping = [id_to_node[i].block_source for i in spies]
                 #block_timestamps = [id_to_node[i].block_timestamps for i in spies]
-                est = estimators.FirstSpyEstimator(spy_mapping, block_timestamps, true_sources, (num_nodes - num_spies))
+                est = estimators.FirstSpyEstimator(tx_maps, true_sources)
+                #for tx in range(num_blocks):
+                #    print("Mapped TX %d to ip %s, spy: %s", (tx, est.tx_ip_map[tx], ip_list[id_list_n.index(est.observer_map[tx])]))
+
 
                 print("%d TXs, %d NODES, %.2f FRACTION SPIES, " % (num_blocks, num_nodes, fraction_spies))
                 print("Precision: %f" % est.p)

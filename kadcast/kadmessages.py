@@ -52,6 +52,16 @@ class Broadcast(BaseMessage):
     def __str__(self):
         return "BROADCAST"
 
+class Forward(BaseMessage):
+    def __init__(self, sender, block, remain_dand_hops, visited_hops):
+        #BaseMessage.__init__(self, sender, data)
+        self.sender = sender
+        self.block = block
+        self.remain_dand_hops = remain_dand_hops
+        self.visited_hops = visited_hops
+
+    def __str__(self):
+        return "DANDELION FORWARD"
 
 class Request(BaseMessage):
     def __str__(self):
