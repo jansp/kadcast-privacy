@@ -9,9 +9,9 @@ KAD_ID_LEN: int = 160
 
 
 class Node:
-    def __init__(self, ip: ipaddress.IPv4Address = None, kad_id: int = None, env=None, ip_to_node: dict = None, use_dandelion=False):
+    def __init__(self, ip: ipaddress.IPv4Address = None, kad_id: int = None, env=None, ip_to_node: dict = None, use_dandelion=False, dand_q=0.5):
         self.use_dandelion = use_dandelion
-        self.dand_hops_range = (5, 10)
+        self.dand_q = dand_q
         self.kad_k = 20
         self.kad_alpha = 3
         self.kad_beta = 1
@@ -24,10 +24,10 @@ class Node:
         self.seen_broadcasts = {}  # int : bool
         self.blocks = {}  # int : Block
         self.block_source = {}  # BLOCK_ID: ipaddress.IPv4Address
-        self.block_timestamps = {} # BLOCK_ID: int[timestamp]
+        self.block_timestamps = {}  # BLOCK_ID: int[timestamp]
         self.non_empty_buckets = set()
         self.continue_broadcast = env.event()
-        self.block_map = {} # BLOCK_ID: (ipadr, timestamp)
+        self.block_map = {}  # BLOCK_ID: (ipadr, timestamp)
 
         seed = seed_handler.load_seed()
         random.seed(seed)
@@ -136,7 +136,7 @@ class Node:
 
     def init_broadcast(self, block: 'Block', anon_phase=True):
         if self.use_dandelion and anon_phase:
-            self.forward_block(block, remain_dand_hops=random.randrange(*self.dand_hops_range))
+            self.forward_block(block)
             return
 
         startheight = KAD_ID_LEN
@@ -148,14 +148,14 @@ class Node:
 
         self.broadcast_block(block)
 
-    def forward_block(self, block: 'Block', remain_dand_hops, visited_hops=None):
+    def forward_block(self, block: 'Block', visited_hops=None):
         if visited_hops is None:
             visited_hops = set()
 
         rand_ip = self.random_ip_from_all_peers(visited_hops)
         visited_hops.add(rand_ip)
 
-        self.send_forward(rand_ip, block, remain_dand_hops - 1, visited_hops)
+        self.send_forward(rand_ip, block, visited_hops)
 
     def broadcast_block(self, block: 'Block'):
         height = self.max_seen_height[block.b_id]
@@ -206,13 +206,12 @@ class Node:
 
     def send_block(self, adr, block, height, d):
         #yield self.env.timeout(100)
-        rand_add_delay = random.randint(0, 2000)
+        rand_add_delay = random.randint(0, 200)
         self.send_broadcast_msg(adr, block, height, delay=(10*d)+rand_add_delay)
 
-    def send_forward(self, adr, block, remain_dand_hops, visited_hops, d=0):
-        rand_add_delay = random.randint(0, 2000)
-        self.send_forward_msg(adr, block, remain_dand_hops, visited_hops, delay=(10 * d) + rand_add_delay)
-
+    def send_forward(self, adr, block, visited_hops, d=0):
+        rand_add_delay = random.randint(0, 200)
+        self.send_forward_msg(adr, block, visited_hops, delay=(10 * d) + rand_add_delay)
 
     def send_msg(self, msg: BaseMessage, ip: int, delay: int = 10):
         # TODO timeout/if node not reachable
@@ -227,6 +226,7 @@ class Node:
         yield self.env.timeout(delay)
         node.connection.put(msg)
 
+    # MESSAGE SENDING
     def send_ping(self, ip: ipaddress.IPv4Address):
         self.env.process(self.send_msg(Ping(self), ip))
 
@@ -243,10 +243,10 @@ class Node:
         self.env.process(self.send_msg(Broadcast(self, block, height), ip, delay))
         #print("%d: Node %s sent TX %d" % (self.env.now, self.ip, block.b_id))
 
-    def send_forward_msg(self, ip: ipaddress.IPv4Address, block: 'Block', remain_dand_hops: int, visited_hops, delay=10):
-        self.env.process(self.send_msg(Forward(self, block, remain_dand_hops, visited_hops), ip, delay))
+    def send_forward_msg(self, ip: ipaddress.IPv4Address, block: 'Block', visited_hops, delay=10):
+        self.env.process(self.send_msg(Forward(self, block, visited_hops), ip, delay))
 
-
+    # MESSAGE HANDLING
     def handle_ping(self, ip_id_pair: (ipaddress.IPv4Address, int)) -> None:
         self.update_bucket(ip_id_pair)
         self.send_pong(ip_id_pair[0])
@@ -261,14 +261,6 @@ class Node:
         node_list = [k_closest[k] for k in sorted(k_closest)]  # sort from close to far
         #print(node_list)
         self.send_nodes(ip_id_pair[0], target_id, node_list)
-
-    # def lookup_process(self, target_id, query_all):
-    #     while True:
-    #         self.lookup_node(target_id, query_all)
-    #         #print("Waiting to continue...")
-    #         yield self.continue_lookup
-    #         #print("CONTINUE")
-    #         self.continue_lookup = self.env.event()
 
     def handle_nodes(self, ip_id_pair: (ipaddress.IPv4Address, int), target_id: int, node_list: [(ipaddress.IPv4Address, int)]) -> None:
         if target_id not in self.node_lookup_map:
@@ -303,7 +295,6 @@ class Node:
             n = (elem[0], elem[1], False)
             query_map[dist] = n
 
-
             if len(query_map) > self.kad_k:
                 if dist != max(query_map):
                     query_all = False
@@ -313,32 +304,21 @@ class Node:
         self.node_lookup_map[target_id] = query_map
         self.lookup_node(target_id, query_all)
 
-        #lookup_proc = self.env.process(self.lookup_process(target_id, query_all))
-
-        #if query_all:
-            #print("ALL %d" % self.kad_id)
-        #self.env.timeout(10000).callbacks.append(lambda _: self.terminate_lookup(target_id))
-        #yield lookup_proc
-
-
-    def handle_request(self, ip_id_pair: (ipaddress.IPv4Address, int), ):
-        pass
-
-    def handle_forward(self, ip_id_pair: (ipaddress.IPv4Address, int), block: 'Block', remain_dand_hops: int):
-        #print("%d: %s RECEIVED FORWARD %d FROM %s, REMAIN HOPS: %d " % (
-        #self.env.now, self.ip, block.b_id, ip_id_pair[0], remain_dand_hops))
+    def handle_forward(self, ip_id_pair: (ipaddress.IPv4Address, int), block: 'Block'):
+        #print("%d: %s RECEIVED FORWARD %d FROM %s" % (
+        # self.env.now, self.ip, block.b_id, ip_id_pair[0]))
 
         if block.b_id not in self.block_source:
-            (ip, id) = ip_id_pair
+            (ip, _) = ip_id_pair
             self.block_source[block.b_id] = ip
             self.block_timestamps[block.b_id] = self.env.now
             self.block_map[block.b_id] = (ip, self.env.now)
 
-        if remain_dand_hops <= 0:
+        unif = random.uniform(0, 1)
+        if unif <= self.dand_q:
             self.init_broadcast(block, anon_phase=False)
         else:
-            self.forward_block(block, remain_dand_hops)
-
+            self.forward_block(block)
 
     def handle_broadcast(self, ip_id_pair: (ipaddress.IPv4Address, int), block: 'Block', height: int) -> None:
         #print("%d: %s RECEIVED BROADCAST %d FROM %s AT HEIGHT %d " % (self.env.now, self.ip, block.b_id, ip_id_pair[0], height))
@@ -395,7 +375,7 @@ class Node:
                 self.handle_broadcast((msg.sender.ip, msg.sender.kad_id), msg.block, msg.height)
 
             if isinstance(msg, Forward):
-                self.handle_forward((msg.sender.ip, msg.sender.kad_id), msg.block, msg.remain_dand_hops)
+                self.handle_forward((msg.sender.ip, msg.sender.kad_id), msg.block)
 
             #if message == 'REQUEST':
             # TODO

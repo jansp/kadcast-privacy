@@ -11,6 +11,8 @@ import hashlib
 
 RANDOM_SEED = 42
 SIM_DURATION = 200000000
+USE_DANDELION = True
+DANDELION_Q = 0.3
 
 
 NUM_NODES = range(10, 20)
@@ -22,8 +24,8 @@ seed_handler.save_seed(RANDOM_SEED)
 
 
 NUM_NODES = [100]
-NUM_TXS = [10]
-num_samples = 20
+NUM_TXS = [40]
+num_samples = 1
 #kad_ks = [20]
 
 
@@ -46,9 +48,6 @@ for s_i in range(num_samples):
                 ip_list = list(map(ipaddress.ip_address, random.sample(range(4294967295), num_nodes)))
                 id_bytes = [(int(ip)).to_bytes(20, byteorder='big') for ip in ip_list]
                 id_list_n = [int(hashlib.sha1(bytestr).hexdigest(), 16) for bytestr in id_bytes]
-                #id_list_n = [5,4,3,2,1,0,15,14,13,12,11,10,9,8,7,6]
-                #print(len(id_list_n) == len(set(id_list_n)))
-
 
                 #id_list = list(range(num_nodes))
                 #id_list_n = id_list
@@ -57,8 +56,9 @@ for s_i in range(num_samples):
                 benign_nodes = list(set(id_list_n) - set(spies))
                 #spies = sorted(random.sample(id_list, num_spies))
 
+                # CREATE NODES
                 for i in range(num_nodes):
-                    n = kadnode.Node(ip_list[i], id_list_n[i], env, ip_to_node, use_dandelion=True)
+                    n = kadnode.Node(ip_list[i], id_list_n[i], env, ip_to_node, use_dandelion=USE_DANDELION, dand_q=DANDELION_Q)
                     ip_to_node[ip_list[i]] = n
                     id_to_node[id_list_n[i]] = n
                     env.process(n.handle_message())
@@ -74,29 +74,28 @@ for s_i in range(num_samples):
                 ### FINISH NETWOK STABILIZING PHASE
 
 
-                senders = random.sample(benign_nodes, num_blocks)
-
-                # initialize empty list of sent broadcasts for every broadcasting node
+                # initialize empty list of sent broadcasts for every benign node
                 true_sources = {}
-                for id_n in senders:
+                for id_n in benign_nodes:
                     true_sources[ip_list[id_list_n.index(id_n)]] = []
 
                 ### START BROADCAST PHASE
                 for block in range(num_blocks):
-                    #sender = random.choice(benign_nodes)
-                    sender = senders[block]
+                    sender = random.choice(benign_nodes)
+                    sender_ip = ip_list[id_list_n.index(sender)]
                     id_to_node[sender].init_broadcast(Block(block))
-                    true_sources[ip_list[id_list_n.index(sender)]].append(block)
+                    true_sources[sender_ip].append(block)
                     env.run(env.now + 20000)
 
                 env.run()
                 ### FINISH BROADCAST PHASE
 
                 ### START DEANONYMIZATION ATTACK PHASE
+
                 #spy_mapping = [id_to_node[i].block_source for i in spies]
                 spy_mapping = {}
                 block_timestamps = {}
-                tx_maps = {} # SPY_ID: { BLOCK_ID: (ip, timestamp) }
+                tx_maps = {}  # SPY_ID: { BLOCK_ID: (ip, timestamp) }
                 for id_n in spies:
                     spy_mapping[id_n] = id_to_node[id_n].block_source
                     block_timestamps[id_n] = id_to_node[id_n].block_timestamps
@@ -122,6 +121,7 @@ for s_i in range(num_samples):
                 print("%d TXs, %d NODES, %.2f FRACTION SPIES, " % (num_blocks, num_nodes, fraction_spies))
                 print("Precision: %f" % est.p)
                 print("Recall: %f" % est.r)
+                #print("Recall (old): %f" % est.r_old)
                 #print("SOURCE IPS")
                 #print(set([ip_list[n] for n in spies]) - set(est.source_ips))
                 dict_append = {}
@@ -141,9 +141,4 @@ for s_i in range(num_samples):
                     #for id_len in id_lens:
 
 
-
-
-
 df.to_csv("csv/firstspy_mul.csv")
-
-
