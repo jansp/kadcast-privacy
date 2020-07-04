@@ -2,17 +2,17 @@ import simpy
 
 class Connection(object):
     # TODO implement latency in a better way
-    def __init__(self, env, delay):
+    def __init__(self, env):
         self.env = env
-        self.delay = delay
+        #self.delay = delay
         self.store = simpy.Store(env)
 
-    def latency(self, value):
-        yield self.env.timeout(self.delay)
+    def latency(self, value, delay=20):
+        yield self.env.timeout(delay)
         self.store.put(value)
 
-    def put(self, value):
-        self.env.process(self.latency(value))
+    def put(self, value, delay=20):
+        self.env.process(self.latency(value, delay))
 
     def get(self):
         return self.store.get()

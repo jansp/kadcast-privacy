@@ -11,7 +11,7 @@ import hashlib
 
 RANDOM_SEED = 42
 SIM_DURATION = 200000000
-USE_DANDELION = True
+USE_DANDELION = False
 DANDELION_Q = 0.3
 
 
@@ -24,10 +24,15 @@ seed_handler.save_seed(RANDOM_SEED)
 
 
 NUM_NODES = [100]
-NUM_TXS = [40]
-num_samples = 1
+NUM_TXS = [20]
+num_samples = 10
 #kad_ks = [20]
 
+# import iplane latencies
+with open("latencies.txt") as f:
+    latencies = f.readlines()
+
+latencies = [int(x.strip()) for x in latencies]
 
 df = pd.DataFrame(columns=["TXS", "NODES", "FRAC_SPIES", "PRECISION", "RECALL", "KAD_K", "ID_LEN"])
 for s_i in range(num_samples):
@@ -58,7 +63,7 @@ for s_i in range(num_samples):
 
                 # CREATE NODES
                 for i in range(num_nodes):
-                    n = kadnode.Node(ip_list[i], id_list_n[i], env, ip_to_node, use_dandelion=USE_DANDELION, dand_q=DANDELION_Q)
+                    n = kadnode.Node(ip_list[i], id_list_n[i], env, ip_to_node, use_dandelion=USE_DANDELION, dand_q=DANDELION_Q, latencies=latencies)
                     ip_to_node[ip_list[i]] = n
                     id_to_node[id_list_n[i]] = n
                     env.process(n.handle_message())

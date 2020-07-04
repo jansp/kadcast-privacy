@@ -9,14 +9,15 @@ KAD_ID_LEN: int = 160
 
 
 class Node:
-    def __init__(self, ip: ipaddress.IPv4Address = None, kad_id: int = None, env=None, ip_to_node: dict = None, use_dandelion=False, dand_q=0.5):
+    def __init__(self, ip: ipaddress.IPv4Address = None, kad_id: int = None, env=None, ip_to_node: dict = None, use_dandelion=False, dand_q=0.5, latencies=[]):
         self.use_dandelion = use_dandelion
+        self.latencies = latencies
         self.dand_q = dand_q
         self.kad_k = 20
         self.kad_alpha = 3
         self.kad_beta = 1
         self.env = env
-        self.connection = Connection(env, 10)
+        self.connection = Connection(env)
         self.ip_to_node = ip_to_node
         self.node_lookup_map = {}  # dict({int: {int: (ipaddress.IPv4Address, int, bool)}})
         self.done_blocks = {}  # block_id: is_done
@@ -206,14 +207,14 @@ class Node:
 
     def send_block(self, adr, block, height, d):
         #yield self.env.timeout(100)
-        rand_add_delay = random.randint(0, 200)
-        self.send_broadcast_msg(adr, block, height, delay=(10*d)+rand_add_delay)
+        #rand_add_delay = random.randint(0, 200)
+        self.send_broadcast_msg(adr, block, height)
 
     def send_forward(self, adr, block, visited_hops, d=0):
-        rand_add_delay = random.randint(0, 200)
-        self.send_forward_msg(adr, block, visited_hops, delay=(10 * d) + rand_add_delay)
+        #rand_add_delay = random.randint(0, 200)
+        self.send_forward_msg(adr, block, visited_hops)
 
-    def send_msg(self, msg: BaseMessage, ip: int, delay: int = 10):
+    def send_msg(self, msg: BaseMessage, ip: int):
         # TODO timeout/if node not reachable
         if ip == self.ip:
             return
@@ -223,8 +224,9 @@ class Node:
 
         node = self.ip_to_node[ip]
 
-        yield self.env.timeout(delay)
-        node.connection.put(msg)
+        delay = random.choice(self.latencies)
+        yield self.env.timeout(0)
+        node.connection.put(msg, delay)
 
     # MESSAGE SENDING
     def send_ping(self, ip: ipaddress.IPv4Address):
@@ -239,12 +241,12 @@ class Node:
     def send_nodes(self, ip: ipaddress.IPv4Address, target_id: int, node_list: [(ipaddress.IPv4Address, int)]):
         self.env.process(self.send_msg(Nodes(self, target_id, node_list), ip))
 
-    def send_broadcast_msg(self, ip: ipaddress.IPv4Address, block: 'Block', height: int, delay=10):
-        self.env.process(self.send_msg(Broadcast(self, block, height), ip, delay))
+    def send_broadcast_msg(self, ip: ipaddress.IPv4Address, block: 'Block', height: int):
+        self.env.process(self.send_msg(Broadcast(self, block, height), ip))
         #print("%d: Node %s sent TX %d" % (self.env.now, self.ip, block.b_id))
 
-    def send_forward_msg(self, ip: ipaddress.IPv4Address, block: 'Block', visited_hops, delay=10):
-        self.env.process(self.send_msg(Forward(self, block, visited_hops), ip, delay))
+    def send_forward_msg(self, ip: ipaddress.IPv4Address, block: 'Block', visited_hops):
+        self.env.process(self.send_msg(Forward(self, block, visited_hops), ip))
 
     # MESSAGE HANDLING
     def handle_ping(self, ip_id_pair: (ipaddress.IPv4Address, int)) -> None:
@@ -321,7 +323,7 @@ class Node:
             self.forward_block(block)
 
     def handle_broadcast(self, ip_id_pair: (ipaddress.IPv4Address, int), block: 'Block', height: int) -> None:
-        #print("%d: %s RECEIVED BROADCAST %d FROM %s AT HEIGHT %d " % (self.env.now, self.ip, block.b_id, ip_id_pair[0], height))
+        print("%d: %s RECEIVED BROADCAST %d FROM %s AT HEIGHT %d " % (self.env.now, self.ip, block.b_id, ip_id_pair[0], height))
         if block.b_id in self.seen_broadcasts and self.seen_broadcasts[block.b_id]:
             return
 
