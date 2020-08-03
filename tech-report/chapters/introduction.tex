@@ -23,12 +23,16 @@ privacy sensitive information on the networking layer, like the IP addresses of 
 The gathered information can then be used to perform deanonymization attacks, e.g. to link transactions to public IP addresses [first described in Koshy]. \\
 One of the most important jobs of the network layer in blockchains is to handle broadcast messages, since
 both new blocks and new transactions are sent as broadcasts through the network.
-While Bitcoin started with a relatively naive approach of broadcasting new blocks and transactions in the network [TODO maybe shortly explain gossiping],
-the network overlay of Bitcoin[/blockchains] has since been revisited multiple times to optimize the message passing with regards to efficiency and privacy [Koshy, Bojja, Fanti, Rohrer, ...] and is continued to be researched and optimized []. \\
+While Bitcoin started with a relatively naive approach of broadcasting
+new blocks and transactions in the network, by just iteratively spreading the
+messages to all nearby nodes,
+the network overlay of blockchains has since been revisited multiple times to optimize the message passing with regards to efficiency and privacy [Koshy, Bojja, Fanti, Rohrer, ...] and is continued to be researched and optimized []. \\
 One [semi-]recently devoloped peer-to-peer overlay that can be used for efficient broadcasting in P2P networks is Kadcast.
-Kadcast is a Kademlia based network overlay that diverges from the naive and redundant[/overhead heavy] approach of ``gossiping'', to a structured message propagation, leveraging the bucket logic introduced by Kademlia, and achieving a complete network coverage with minimal messages
-[excluding drops/churn/purposefully introduced redundancy for stability reasons]. [TODO vllt infografik einfügen wie kadcast/bucket logic funktioniert?]
-The initial application for Kadcast was to broadcast newly mined blocks. Because the direct link between IP addresses and transactions is already broken when a transaction is included in a block, the block propagation can be optimized for efficiency only, without any concerns for privacy issues [on the network layer] [TODO check again]. \\
+Kadcast is a Kademlia based network overlay that diverges from the naive and redundant approach of ``gossiping'', to a structured message propagation, leveraging the bucket logic introduced by Kademlia, and achieving a complete network coverage with minimal messages (excluding neccessary redundancy for stability reasons). [TODO vllt infografik einfügen wie kadcast/bucket logic funktioniert?]
+The initial application for Kadcast was to broadcast newly mined blocks.
+Because the direct link between IP addresses and transactions is already
+broken when a transaction is included in a block, the block propagation
+was optimized for efficiency only, without any concerns for privacy issues. \\
 However, when using Kadcast to broadcast transactions instead, an adversary that is connected to the network can potentially perform
 deanonymization attacks and link transactions to the public IP addresses that issued them. \\
 Since the travel path of messages in Kadcast is structured, and message redundancy is reduced to a minimum, the question was raised, what sorts of privacy implications using Kadcast as a broadcasting algorithm for transactions would have [R.]. \\
@@ -43,7 +47,7 @@ In our evalution we will take a closer look at the results of our simulated atta
 review if the privacy impacts of using Kadcast for transaction broadcasting align with our
 research hypothesis, that the structured overlay has [negative] effects on the privacy of the network. \\
 In the last step of our evalution, we will try to mitigate the privacy issues we have observed previously
-by prefacing the broadcasts with an anonymity phase as described in [Dandelion]. \\
+by [prefixing /besseres wort] the broadcasts with an anonymity phase as described in [Dandelion]. \\
 We conclude our analysis by briefly summarizing our results and giving an outlook
 on where future research on this topic could be headed from this point on. \\
 TODO Results + Outline

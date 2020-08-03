@@ -13,7 +13,7 @@ class Node:
         self.use_dandelion = use_dandelion
         self.latencies = latencies
         self.dand_q = dand_q
-        self.kad_k = 20
+        self.kad_k = 60
         self.kad_alpha = 3
         self.kad_beta = 1
         self.env = env
@@ -227,6 +227,7 @@ class Node:
         delay = random.choice(self.latencies)
         yield self.env.timeout(0)
         node.connection.put(msg, delay)
+        #TODO self.env.process(c.put) or yield self.env.proc..., instead of timeout(0) ?
 
     # MESSAGE SENDING
     def send_ping(self, ip: ipaddress.IPv4Address):
@@ -323,7 +324,7 @@ class Node:
             self.forward_block(block)
 
     def handle_broadcast(self, ip_id_pair: (ipaddress.IPv4Address, int), block: 'Block', height: int) -> None:
-        print("%d: %s RECEIVED BROADCAST %d FROM %s AT HEIGHT %d " % (self.env.now, self.ip, block.b_id, ip_id_pair[0], height))
+        #print("%d: %s RECEIVED BROADCAST %d FROM %s AT HEIGHT %d " % (self.env.now, self.ip, block.b_id, ip_id_pair[0], height))
         if block.b_id in self.seen_broadcasts and self.seen_broadcasts[block.b_id]:
             return
 

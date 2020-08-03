@@ -1,10 +1,48 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
+import sys
+
+# Create the parser
+parser = argparse.ArgumentParser(description='Draw plot')
+
+# Add the arguments
+parser.add_argument('filename_in',
+                       metavar='filename_in',
+                       type=str,
+                       help='name of csv')
+
+parser.add_argument('filename_out',
+                       metavar='filename_out',
+                       type=str,
+                       help='name of png')
+
+parser.add_argument('-q', metavar='N', type=float, default=0.5, help="dandelion Q parameter")
+
+parser.add_argument('-k', metavar='N', type=int, default=20, help="K")
+
+parser.add_argument('--use_dand', dest='use_dand', default=False, action='store_true', help='use dandelion')
 
 
+# Execute the parse_args() method
+args = parser.parse_args()
 
-df = pd.read_csv("csv/firstspy_mul.csv")
+print(args)
+
+use_dand = args.use_dand
+#dand_q = args.q
+filename_in = args.filename_in
+filename_in = "csv/"+filename_in
+
+filename_out = args.filename_out
+filename_out = "plots/"+filename_out
+
+use_dand = args.use_dand
+dand_q = args.q
+k = args.k
+
+df = pd.read_csv(filename_in)
 #df = df[["TXS", "NODES", "FRAC_SPIES", "PRECISION", "RECALL", "KAD_K", "ID_LEN"]]
 df = df[["TXS", "NODES", "FRAC_SPIES", "PRECISION", "RECALL"]]
 
@@ -67,13 +105,16 @@ for n in df["NODES"].unique():
         plt.xlabel('Fraction of spies')
         # giving a title to my graph
         #plt.title("PRECISION/RECALL - 200 NODES, %d TXs" % txs)
-        ax.set_title("PRECISION/RECALL - %d NODES, %d TXs" % (n, txs))
+        if(use_dand):
+            ax.set_title("PRECISION/RECALL - %d NODES, %d TXs - K=%d, Q=%0.1f" % (n, txs, k, dand_q))
+        else:
+            ax.set_title("PRECISION/RECALL - %d NODES, %d TXs - K=%d" % (n, txs, k))
 
         # show a legend on the plot
         plt.legend()
 
         # function to show the plot
         #plt.show()
-        plt.savefig("plots/plot_%d_%d.png" % (n, txs))
+        plt.savefig(filename_out)
         fig.clf()
         #plt.cla(ax)

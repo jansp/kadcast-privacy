@@ -27,7 +27,7 @@ class FirstSpyEstimator:
             #print("Mapped TX %d to IP %s, first spy: %d" % (tx, from_ip, observer_map[tx]))
 
 
-        ip_tx_map = {} # Mapping created by adversary #TODO directly create this mapping, instead of reversing tx_ip_map
+        ip_tx_map = {} # Mapping created by adversary
 
         for ip in true_sources.keys():
             ip_tx_map[ip] = []
@@ -43,20 +43,45 @@ class FirstSpyEstimator:
         #print(ip_tx_map)
         #print(true_sources)
 
-        hits = 0
-        misses = 0
+        #hits = 0
+        #misses = 0
+        #for ip in true_sources.keys():
+        #    for tx in true_sources[ip]:
+        #        if tx in ip_tx_map[ip]:
+        #            hits += 1
+        #        else:
+        #            misses += 1
+        #    for tx in ip_tx_map[ip]:
+        #        if tx not in true_sources[ip]:
+        #            misses += 1
+
+        #self.r = hits/len(txs)
+        #self.p = hits/(len(txs)+misses)
+
+
         for ip in true_sources.keys():
+            fp = 0
+            fn = 0
+            tp = 0
             for tx in true_sources[ip]:
                 if tx in ip_tx_map[ip]:
-                    hits += 1
+                    tp += 1
                 else:
-                    misses += 1
+                    fn += 1
+            #all_hits += hits
+            if tp == 0:
+                continue
             for tx in ip_tx_map[ip]:
                 if tx not in true_sources[ip]:
-                    misses += 1
+                    #misses += 1
+                    fp += 1
+            self.r += tp/(tp+fn)
+            self.p += tp/(tp+fp)
 
-        self.r = hits/len(txs)
-        self.p = hits/(len(txs)+misses)
+        #print(len(true_sources.keys()))
+        t_s = len(true_sources.keys())
+        self.r = self.r/t_s
+        self.p = self.p/t_s
 
         #found_tx_list = []
         #for tx in txs:

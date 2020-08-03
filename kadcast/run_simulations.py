@@ -7,12 +7,38 @@ import seed_handler
 from helpers import Block
 import estimators
 import hashlib
-#import sys
+import argparse
+import sys
+
+# Create the parser
+parser = argparse.ArgumentParser(description='Run simulation')
+
+# Add the arguments
+parser.add_argument('filename',
+                       metavar='filename',
+                       type=str,
+                       help='name of csv')
+
+parser.add_argument('-q', metavar='N', type=float, default=0.5, help="dandelion Q parameter")
+
+parser.add_argument('--use_dand', dest='use_dand', default=False, action='store_true', help='use dandelion')
+
+
+# Execute the parse_args() method
+args = parser.parse_args()
+
+print(args)
+
+use_dand = args.use_dand
+dand_q = args.q
+filename = args.filename
+filename = "csv/"+filename
+
 
 RANDOM_SEED = 42
 SIM_DURATION = 200000000
-USE_DANDELION = False
-DANDELION_Q = 0.3
+USE_DANDELION = use_dand
+DANDELION_Q = dand_q
 
 
 NUM_NODES = range(10, 20)
@@ -23,9 +49,9 @@ KAD_KS = range(20, 60)
 seed_handler.save_seed(RANDOM_SEED)
 
 
-NUM_NODES = [100]
-NUM_TXS = [20]
-num_samples = 10
+NUM_NODES = [200]
+NUM_TXS = [50]
+num_samples = 20
 #kad_ks = [20]
 
 # import iplane latencies
@@ -81,18 +107,22 @@ for s_i in range(num_samples):
 
                 # initialize empty list of sent broadcasts for every benign node
                 true_sources = {}
-                for id_n in benign_nodes:
-                    true_sources[ip_list[id_list_n.index(id_n)]] = []
+                #for id_n in benign_nodes:
+                #    true_sources[ip_list[id_list_n.index(id_n)]] = []
 
                 ### START BROADCAST PHASE
                 for block in range(num_blocks):
                     sender = random.choice(benign_nodes)
                     sender_ip = ip_list[id_list_n.index(sender)]
+                    if sender_ip not in true_sources.keys():
+                        true_sources[sender_ip] = []
+
                     id_to_node[sender].init_broadcast(Block(block))
                     true_sources[sender_ip].append(block)
                     env.run(env.now + 20000)
 
                 env.run()
+                sim_time = env.now
                 ### FINISH BROADCAST PHASE
 
                 ### START DEANONYMIZATION ATTACK PHASE
@@ -126,6 +156,7 @@ for s_i in range(num_samples):
                 print("%d TXs, %d NODES, %.2f FRACTION SPIES, " % (num_blocks, num_nodes, fraction_spies))
                 print("Precision: %f" % est.p)
                 print("Recall: %f" % est.r)
+                print("Sim Time: %d" % sim_time)
                 #print("Recall (old): %f" % est.r_old)
                 #print("SOURCE IPS")
                 #print(set([ip_list[n] for n in spies]) - set(est.source_ips))
@@ -135,8 +166,9 @@ for s_i in range(num_samples):
                 dict_append["FRAC_SPIES"] = fraction_spies
                 dict_append["PRECISION"] = est.p
                 dict_append["RECALL"] = est.r
-                dict_append["KAD_K"] = 20
+                dict_append["KAD_K"] = 60
                 dict_append["ID_LEN"] = 160
+                dict_append["SIM_TIME"] = sim_time
 
                 #df.to_csv("firstspy200.csv", mode='a', header=None)
                 df = df.append(dict_append, ignore_index=True)
@@ -146,4 +178,4 @@ for s_i in range(num_samples):
                     #for id_len in id_lens:
 
 
-df.to_csv("csv/firstspy_mul.csv")
+df.to_csv(filename)
