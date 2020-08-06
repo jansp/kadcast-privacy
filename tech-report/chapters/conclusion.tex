@@ -1,20 +1,22 @@
-\section{Conclusion}
+\section{Conclusion\label{conclusion}}
 The goal of our research was to evaluate which kinds of privacy implications using the Kadcast algorithm for
 transaction broadcasting in blockchain based technologies would have. \\
 To answer this question we simulated a network which uses Kadcast as a transaction broadcasting algorithm.
-To evaluate the privacy properties, we further simulated an attack by a botnet-like adversary that tries
-to link transactions to public IP addresses.\\
-We launch a simple, but effective deanonymization attack using the so called ``first-spy estimator'', which
+To evaluate the privacy properties of this network, we further simulated an attack by a botnet-like adversary that tries
+to link issued transactions to public IP addresses.\\
+We launch a simple, but effective, deanonymization attack using the so called ``first-spy estimator'', which
 classifies the first node that forwards a transaction to the botnet as the originator of said transaction. \\
-We have shown that even such a simplistic attack performs relatively well [numbers] [compared to?] in our simulation [how about real world? results applicable?].
+We have shown that even such a simple attack performs relatively
+well [numbers?] [compared to?] in our simulation [how about real world?
+results applicable?]. \\
 Our next step was to try to mitigate the observed privacy issues by
-combining Kadcast with a simplified version of the Dandelion Spreading
+combining Kadcast with a simplified version of the Dandelion spreading
 algorithm introduced by [Fanti]. \\
 The experimental results show the clear trend that combining the Kadcast broadcasting phase with a Dandelion anonymity phase
 yields privacy benefits. \\
 Since our simulation setup is limited and does not account for any node or message failures,
 the results of our evalution have to be assessed with caution.
-While we find it highly unlikely, that real world experiments would completely contradict our results, we made some strong
+While we find it highly unlikely that real world experiments would completely contradict our results, we made some strong
 assumptions in the attacker model based on what kind of attacks on Kadcast are currently known and our estimated impact of those attacks.
 We don't know yet, if there is a realistic attack that e.g. leverages the knowledge an adversary has about the overlay structure,
 so that they can perform better deanonymization attacks. \\

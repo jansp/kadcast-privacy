@@ -1,14 +1,24 @@
-\section{Anonymity Metrics}
+\section{Anonymity Metrics\label{metrics}}
 The result of each of our deanonymization attacks is a transaction to IP mapping,
-in which each observed transaction is mapped to exactly on IP address. \\
+in which each observed transaction is mapped to exactly one IP address. \\
 Our problem resembles a standard classification problem, as we try to assign each
 transaction to a class (node). Therefore we can use standard classification metrics to
-evaluate the effectiveness of our estimator.
+evaluate the effectiveness of our estimator. \\
 We decided to compute averaged precision and recall values over the whole mapping,
 as these are established and tested metrics for our use case [fanti et. al]. \\
-The recall value can be interpreted as ``probality of detection'' and the
+The recall value can be interpreted as ``probality of detection'', and the
 precision value relates inversely to the average plausible deniability per node.
 That means, the higher the recall, the more likely it is that a random transaction
 was correctly classified. The lower the precision, the greater the average plausible
 deniability per node. \\
-The values are computed as follows: [hier formel einfügen]
+The values are computed as follows: 
+$$Precision = \frac{tp}{tp + fp}$$
+$$Recall = \frac{tp}{tp + fn}$$
+with
+$tp = true\;positives$, $fp = false\;positives$, $fn = false\;negatives$
+\\
+As already indicated in Section~\ref{attacker_model}, using these metrics also means that we define anonymity as a network
+property and not as something that an individual network participant can achieve.
+Our attack targets the whole network and the results show the effect of a network
+wide deaonynomization attack. We do not evaluate the privacy from a users
+perspective.

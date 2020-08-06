@@ -1,54 +1,30 @@
-\section{Discussion}
-Our results indicate that the privacy properties of kadcast are not optimal. \\
-
-
-
-[ DISCUSS RESULTS HERE ]
-
-
-
-In our analysis we assumed the adversary does not take the network topology into account.
+\section{Discussion\label{discussion}}
+Our results indicate that the privacy properties of Kadcast are not optimal. \\
+We did not do a thorough analysis as to why this is the case, as this would
+be out of scope for this report. \\
+If one were to further investigate the cause of this result, there are
+many interesting open questions.
+For example, it would be interesting to analyze if the privacy properties change
+if the broadcast is sent to the buckets in reverse order. Kadcast
+first sends the broadcast to the bucket which is furthest away, as this also
+means it has the largest routing subtree. Afterwards broadcast messages
+are sent to other buckets in descending order. This is done to achieve
+fair spreading characteristics [], although it is not clear how this
+relates to the anonymity of the network. Our assumption is, that sending
+the message to the largest subtree first reduces the probability of
+directly hitting an adversarial node. \\
+In our analysis we also assumed the adversary does not take the network topology into account.
 It would be interesting to drop this assumption and do further research on what kind of
 information a less ``naive'' attacker could exploit. \\
 For example, one could explore if it would be possible for an attacker to infer additional information
-about the bucket layout of sending nodes, and use this information to create a more sophisticated estimator. \\
+about the bucket layout of sending nodes, and utilize this information to create a more sophisticated estimator. \\
 If the attacker could somehow identify some nodes as being far away or close by (according to the XOR distance),
 they could e.g. weight their obvervations by proximity, as a close node has a higher chance to have a direct link
 to a node. \\
-
-To really understand the bounderies of an attack, it would further be of interest to
-investigate the symmetry properties of the message spreading. \\
+To really understand the boundaries of an attack, it would further be of interest to
+investigate the symmetry properties[] of the message spreading. \\
 In general, it would be of great benefit if our results were reinforced either
-by a more realistic simulation that closer resembles real world scenarios, e.g. including failures, or
-by a formal modal that gives a better understanding of an attackers capabilites.
-
-
-%We do not know yet, if there is no possibility an adversary could 
-
-%Also, if an adversary can somehow identify ``proximity clusters'' of nodes, i.e. nodes that are
-%grouped close together from an adversarys node perspective, this information could be used
-%to weight observations by clusters, because such a cluster would deviate in the amount
-%of direct links it has to the spy (a cluster of close nodes will have many direct links to the spy,
-%whilst a cluster of far away nodes does have few direct links to the spy)
-
-%such clusters(or proximity in general) could maybe be inferred by combining observations?
-%-> even better: know if nodes are close, far
-%[Ich hab mir zwar Überlegungen dazu gemacht, aber bin zu keinem Ergebnis gekommen.
-%Die Grundidee war, dass wenn wir einen Weg finden Rückschlüsse auf das Bucket Layout des initialen Senders zu bekommen
-%(z.B. mit einer Heuristik anhand der message timestamps?), dann könnte man evtl. erkennen welche der eigenen adversary
-%Knoten aus Broadcast Initiator Sicht geringe Entfernung haben und damit evtl. irgendwas anfangen. Vllt. ausprobieren
-%ob eine Gewichtung Sinn macht, da die Chance einen direkten Link zum Initiatior zu haben ja größer wird je näher man ihm kommt.
-%Auch wenn man nur Teilinformationen bekommen kann, z.B. das bestimmte eigene Knoten aus Broadcaster Sicht ein ``Proximitätscluster''
-%bilden, könnte man das evtl. für den Estimator benutzen, da ein solches Cluster ja entweder überdurchschnittlich viele
-%oder überdurchschnittlich wenige direkte Verbindungen zum Broadcaster haben muss (je nachdem ob es nah oder fern liegt).
-%Leider bin ich auf keine Möglichkeit gekommen solche Erkenntnise als Angreifer zu erlangen.
-%]
-%This also means we assume the adversary does not take the broadcasting height attached to each broadcast message into account
-%for the deanonymization attack. While we do not formally show the impact of not using this information,
-%this assumption can at least be somewhat justified because the broadcasting height can
-%theoratically be hidden or masked to a certain extend (e.g. by sending the same message at different/randomized heights).
-
-
-%- would be nice to have math. model/good understanding of properties, instead of quantitative results
-%  - ex: show (a)symmetry (ripple effect)
-
+by a more realistic simulation that closer resembles real world
+scenarios, e.g. by including failures, or
+by a formal model that gives a better understanding of the theoretical
+limits of an attack.

@@ -1,7 +1,6 @@
-\section{Introduction}
+\section{Introduction \label{introduction}}
 So called ``Cryptocurrencies'' and other blockchain based technologies are gaining
 increasing attention since the emergence of Bitcoin, both in the academic community and in media []. \\
-%.[hier bessere ueberleitung]
 These cryptocurrencies, like Bitcoin can be used analogous to fiat money to transfer ``coins''
 from a sender to a receiver. In Bitcoin, new coins can be ``mined'' by investing computing power.
 Unlike a fiat money transaction, which is generally handled by a bank, there is no central instance
@@ -28,7 +27,11 @@ new blocks and transactions in the network, by just iteratively spreading the
 messages to all nearby nodes,
 the network overlay of blockchains has since been revisited multiple times to optimize the message passing with regards to efficiency and privacy [Koshy, Bojja, Fanti, Rohrer, ...] and is continued to be researched and optimized []. \\
 One [semi-]recently devoloped peer-to-peer overlay that can be used for efficient broadcasting in P2P networks is Kadcast.
-Kadcast is a Kademlia based network overlay that diverges from the naive and redundant approach of ``gossiping'', to a structured message propagation, leveraging the bucket logic introduced by Kademlia, and achieving a complete network coverage with minimal messages (excluding neccessary redundancy for stability reasons). [TODO vllt infografik einfügen wie kadcast/bucket logic funktioniert?]
+Kadcast is a Kademlia based network overlay that diverges from the naive
+and redundant approach of ``gossiping'', to a structured message
+propagation, leveraging the bucket logic introduced by Kademlia, and
+achieving a complete network coverage with minimal messages (excluding
+neccessary redundancy for stability reasons). %[TODO vllt infografik einfügen wie kadcast/bucket logic funktioniert?]
 The initial application for Kadcast was to broadcast newly mined blocks.
 Because the direct link between IP addresses and transactions is already
 broken when a transaction is included in a block, the block propagation
@@ -38,20 +41,34 @@ deanonymization attacks and link transactions to the public IP addresses that is
 Since the travel path of messages in Kadcast is structured, and message redundancy is reduced to a minimum, the question was raised, what sorts of privacy implications using Kadcast as a broadcasting algorithm for transactions would have [R.]. \\
 To start answering this question, we want to use a quantitative approach and perform a deanonymization attack
 as it could happen in a real world scenario. Because of the lack of historical data, we use a [highly] abstracted network
-simulation to generate data which then can be used for the attack. The simulation setup, including constraints of our simulation and potential resulting implications for the attack are described in [Section Simulation Setup]. \\
+simulation to generate data which can then be used for the attack. The
+simulation setup, including constraints of our simulation and potential
+resulting implications for the attack are described in
+Section~\ref{simulation_setup}. \\
 We further model our adversary and describe the means of our attacker, explaining
-which simplifications we made to the attacker model, and why we can use such a simplified model
-without sacrificing much effectiveness of the attack [Ch. atk.model]. \\
-We will then shortly elaborate which metrics we applied to evaluate the impact of the attack [Ch. metrics]. \\
-In our evalution we will take a closer look at the results of our simulated attacks, and
+which simplifications we made to the attacker model, and why we think we can use such a simplified model
+without sacrificing much effectiveness of the attack in
+Section~\ref{attacker_model}. \\
+We will then shortly elaborate which metrics we applied to evaluate the impact of the attack. \\
+In our evalution~\ref{evaluation} we will take a closer look at the results of our simulated attacks, and
 review if the privacy impacts of using Kadcast for transaction broadcasting align with our
-research hypothesis, that the structured overlay has [negative] effects on the privacy of the network. \\
-In the last step of our evalution, we will try to mitigate the privacy issues we have observed previously
-by [prefixing /besseres wort] the broadcasts with an anonymity phase as described in [Dandelion]. \\
+research hypothesis, that the structured overlay has negative effects on the privacy of the network. \\
+In the last step of our evalution, we will evaluate if we can achieve
+better privacy
+by combining the broadcasts with an anonymity phase as described in [Dandelion]. \\
 We conclude our analysis by briefly summarizing our results and giving an outlook
 on where future research on this topic could be headed from this point on. \\
-TODO Results + Outline
-
-
-
-%\section{Evaluation}
+Our results indicate that Kadcast is indeed
+vulnerable to network-wide deanonymization attacks. We further show that combining
+Kadcast with Dandelion spreading can help mitigating the observed problems.
+The rest of the paper is structured as follows: in
+Section~\ref{attacker_model} we describe the means of our adversary, in Section~\ref{simulation_setup} we describe the
+technical setup of our simulation, in
+Section~\ref{spreading_model} we shortly summarize how Kadcast
+broadcasting works, Section~\ref{metrics} describes how we assessed the
+impact of our attack, we then show the results of our simulated attack
+in Section~\ref{evaluation}. Section~\ref{related_work} describes other
+research which directly influenced our work and in
+Section~\ref{discussion} we discuss the results and shortcomings of our
+experiments. Finally, we give a short summary and outlook in
+Section~\ref{conclusion}.

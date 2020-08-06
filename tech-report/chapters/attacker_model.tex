@@ -1,68 +1,39 @@
-\section{Attacker Model}
-%- common adv. models are: botnet, supernode.
-%- adv. can: create outbound connections(?), disobey protocol, record traffic (incl. src ip, timestamp, ...)
-%- attack is network wide, not focused on single peer/target
-%- goal: create TX-IP mapping
-%- another assumption: broadcast height can be ``hidden'' (to certain extend)/this information is not available for attacker
-The overall goal of the attacker in our setup is to deanonymize users in the network.
+\section{Attacker Model\label{attacker_model}}
+The overall goal of the attacker in our setup is to deanonymize users in
+the network.
 More precisely, the attacker wants to map transactions to the public IP addresses that issued them. \\
 The Kadcast protocol comes with inherit security properties that mitigate different kind of attacks
-and allow us to better define the means of an attacker if we assume those properties hold [].
-%[TODO: short summary on threat model on kadcast, see kadcast paper]
+and allow us to concisely define the means of an attacker if we assume
+those properties hold []. [TODO: short summary of threat model of
+kadcast, see kadcast paper] \\
 The factor that is most important for mitigating attacks on the network layer, is that participants are
 not allowed to choose their position in the overlay freely, and it is instead bound to the public IP address of a peer [].
 The IP to ID mapping is done via a cryptographic hash function we assume to be unbreakable.
 This makes it considerably harder for attackers to e.g. perform eclipse attacks [] or benefit in other ways from
 a freely chosen position in the network. [sybil.] \\
-We currently only know of two ways a malicious party that disobeys the protocol could attack or observe the network differently than
-an ``honest-but-curious" attacker. \\
+We currently only know of two ways a malicious party that disobeys the
+protocol could attack or observe the network differently than an ``honest-but-curious" attacker. \\
 Those are namely a denial-of-service attack and an attack in which the adversary tries to flood
-benign nodes with ping messages, in hope of hitting the time frame in which the benign node has at least one unresponsive
+benign nodes with ping messages in hope of hitting the time frame in which the benign node has at least one unresponsive
 peer, but has yet to refresh its peer list [eclipsing false friends]. In
 this case the attacker could potentially insert their own nodes into the
-peer list of the benign node. \\
+peer list of the benign node.
+This attack is made harder in Kadcast because not only does a node need
+to have any arbitrary unresponsive peer, but an unresponsive peer
+in the same bucket which the adversial node would be placed in. \\
 Because of the assumed limited advantages byzantine nodes give an attacker and because our simulation setup doesn't account for any network change and turn,
 which would be needed to perform a pinging attack as described above,
 we exclude both of these attack vectors from our evalution and instead focus solely on an ``honest-but-curious" attacker. \\
-%This attack is made harder in Kadcast because not only does a node need any unresponsive peer, but an unresponsive peer
-%in the same bucket which the adversial node would be placed into.
-%the benign node would replace the unresponsive node
-%with the new malicious (but responsive) node in its peer list.
-
-%so called ``aggressive pinging'' [TODO ich glaube es wird nicht so genannt...] [bib], a technique where malicious nodes flood
-%benign nodes with ping messages in hope of hitting the time window in which the benign node has at least one unresponsive
-%peer in the corresponding bucket (TODO the bucket which the new node tries to enter), but has yet to refresh this bucket. In this case
-%the benign node would replace the unresponsive node with the new malicious (but responsive) node in its bucket.
-
-%We assume not obeying the protocol to have limited impact on deanonymization attacks
-%and therefore exclude it in our analysis.
-%This is a strong assumption, as we do not know if there are other attacks that could effect the anonymity properties of the network
-%in unforseen ways or if the known attack vectors could be exploited in an unknown useful way.
-%Such a thourogh analysis including advanced attacks on the protocol itself is out of scope for this paper.
-
 For our analysis we further assume the adversary does not take the
 network topology or their overlay-protocol knowledge into account
 and only uses information recorded by the spies, including aggregated
 and infered information. \\
-This also means we assume the adversary does not use the broadcasting height attached to each broadcast message
+This also means we assume the adversary does not utilize the broadcasting height attached to each broadcast message
 for the deanonymization attack. While we do not formally show the impact
 of not using that information,
-this assumption can at least be somewhat justified because the broadcasting height can
-theoratically be hidden or masked to a certain extend (e.g. by sending the same message at different/randomized heights). \\
-%[Ich hab mir zwar Überlegungen dazu gemacht, aber bin zu keinem Ergebnis gekommen.
-%Die Grundidee war, dass wenn wir einen Weg finden Rückschlüsse auf das Bucket Layout des initialen Senders zu bekommen
-%(z.B. mit einer Heuristik anhand der message timestamps?), dann könnte man evtl. erkennen welche der eigenen adversary
-%Knoten aus Broadcast Initiator Sicht geringe Entfernung haben und damit evtl. irgendwas anfangen. Vllt. ausprobieren
-%ob eine Gewichtung Sinn macht, da die Chance einen direkten Link zum Initiatior zu haben ja größer wird je näher man ihm kommt.
-%Auch wenn man nur Teilinformationen bekommen kann, z.B. das bestimmte eigene Knoten aus Broadcaster Sicht ein ``Proximitätscluster''
-%bilden, könnte man das evtl. für den Estimator benutzen, da ein solches Cluster ja entweder überdurchschnittlich viele
-%oder überdurchschnittlich wenige direkte Verbindungen zum Broadcaster haben muss (je nachdem ob es nah oder fern liegt).
-%Leider bin ich auf keine Möglichkeit gekommen solche Erkenntnise als Angreifer zu erlangen.
-%]
-%Common models for adverseries in P2P networks range from singular supernodes that try
-%to connect to as many peers as possible, to botnet-like structures of adversarial nodes that behave honest-but-curious,
-%and also include hybrid approaches between those two extremes [].
-Under the specified assumptions we found the most realistic scenario
+this assumption can at least be somewhat justified by assuming the broadcasting height can
+be hidden or masked to a certain extend (e.g. by sending the same message at different/randomized heights). \\
+Under the specified circumstances we found the most realistic scenario
 to be a botnet-like adversary that is part of the normal network overlay
 and is used to deanonymize other users in the network. \\
 We therefore model the attacker as an entity that controls a certain share of nodes in the network (so called ``spies'').
@@ -71,21 +42,12 @@ To perform a deanynomization attack, the adversary logs all messages their nodes
 including timestamp and sender (IP address) for each recorded message. After the collection phase,
 the attacker feeds the aggregated information up to this point in time into an estimator that
 computes macro averaged precision and recall values over the whole dataset as defined in
-[SECTION METRICS]. \\
-As an estimator we use a simplistic so called ``first-spy-estimator''.
-This estimator maps every observed transaction to the first observed IP address that
+Section~\ref{metrics}. \\
+As an estimator we use the simple ``first-spy-estimator'' [ref].
+This estimator maps every transaction to the first IP address that
 sent the transaction to any of the spies. \\
-%From this point on we have to differentiate between two different kind of attackers: \\
-%1. An attacker that has no knowledge of the network topology \\
-%2. An attacker that has knowledge of the network topology
-
-%The first part of our evalution focuses solely on scenario 1. and therefore uses only local
-%network(besseres Wort?) information and information infered by combining the observations of all spies.
-
-%In our analysis we fed these informations to an estimator [s.fanti]
-
-%- only known options of malicious(byzantine) nodes: (d)dos, aggressive pinging
-
-%We therefore chose to 
-
-% interesting: node share reicht aus, man braucht kein computing power anteil von X %, im gegensatz zu 50% attack bei consensus layer
+Using this setup, it follows that anonymity is evaluated as a
+network-wide property. Our evaluation does not incorporate the
+perspective of a singular participating user of the network, i.e. we
+make no claims on the anonymity of an individual participant of
+the network, but only on the anonymity of the network as a whole.

@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
+import scipy.stats
 import sys
 
 # Create the parser
@@ -24,6 +25,8 @@ parser.add_argument('-k', metavar='N', type=int, default=20, help="K")
 
 parser.add_argument('--use_dand', dest='use_dand', default=False, action='store_true', help='use dandelion')
 
+parser.add_argument('--conf', dest='conf', default=False, action='store_true', help='use confidence interval instead of standard deviation')
+
 
 # Execute the parse_args() method
 args = parser.parse_args()
@@ -31,6 +34,7 @@ args = parser.parse_args()
 print(args)
 
 use_dand = args.use_dand
+use_conf = args.conf
 #dand_q = args.q
 filename_in = args.filename_in
 filename_in = "csv/"+filename_in
@@ -51,8 +55,6 @@ for n in df["NODES"].unique():
     df_n = df[df["NODES"] == n]
     for txs in df["TXS"].unique():
         fig, ax = plt.subplots()
-        #ax.plot(x, y)
-        #ax.set_title('A single plot')
 
         df_n_tx = df_n[df_n["TXS"] == txs]
         #print(df_n_tx)
@@ -82,9 +84,6 @@ for n in df["NODES"].unique():
         #print(x1)
         #print(p_means)
         #print(p_std_dev)
-        #y1 = df_n_tx["PRECISION"]
-        #x1 = df_n_tx["FRAC_SPIES"]
-        #ax.plot(x1, y1, label="Precision")
         ax.errorbar(x1+0.007, y1, yerr=p_std_dev, fmt='o', label="Precision")
         #print(p_means)
 
@@ -93,10 +92,7 @@ for n in df["NODES"].unique():
         x2 = df_n_tx["FRAC_SPIES"].unique()
         #print(r_means)
         #print(r_std_dev)
-        #y2 = df_n_tx["RECALL"]
-        #x2 = df_n_tx["FRAC_SPIES"]
         # plotting the line 2 points
-        #ax.plot(x2, y2, label="Recall")
         ax.errorbar(x2-0.007, y2, yerr=r_std_dev, fmt='o', label="Recall")
 
         # naming the y axis
@@ -104,17 +100,14 @@ for n in df["NODES"].unique():
         # naming the x axis
         plt.xlabel('Fraction of spies')
         # giving a title to my graph
-        #plt.title("PRECISION/RECALL - 200 NODES, %d TXs" % txs)
-        if(use_dand):
-            ax.set_title("PRECISION/RECALL - %d NODES, %d TXs - K=%d, Q=%0.1f" % (n, txs, k, dand_q))
+        if use_dand:
+            ax.set_title("Dandelion - PRECISION/RECALL | %d NODES, %d TXs | k=%d, q=%0.1f" % (n, txs, k, dand_q))
         else:
-            ax.set_title("PRECISION/RECALL - %d NODES, %d TXs - K=%d" % (n, txs, k))
+            ax.set_title("PRECISION/RECALL | %d NODES, %d TXs | k=%d" % (n, txs, k))
 
         # show a legend on the plot
         plt.legend()
 
-        # function to show the plot
-        #plt.show()
+        # save plot
         plt.savefig(filename_out)
         fig.clf()
-        #plt.cla(ax)

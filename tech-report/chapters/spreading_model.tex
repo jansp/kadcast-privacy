@@ -1,0 +1,22 @@
+\section{Spreading Model\label{spreading_model}}
+As stated in Section~\ref{introduction}, we want to analyze the privacy
+properties of the Kadcast broadcasting algorithm. \\
+In Kadcast, broadcast messages propagate similar to Kademlia lookup queries
+[]. \\
+Kadcast uses the XOR metric on a pair of node IDs to compute the distance
+between those nodes. E.g. the distance between the node with ID $x$ and
+the node with ID $y$ is
+$$d(x, y) = x \oplus y$$
+Each node has so called ``buckets'' to store ID to IP mappings of peers.
+Buckets are segregated into nodes with IDs of same-length bitwise matching
+prefixes.
+Each bucket stores $k$ nodes. \\
+This node segregation allows for efficient message passing.
+When broadcasting a message, Kadcast... [TODO infografik einfügen
+wie kadcast/bucket logic funktioniert] \\
+
+We hypothesize that this kind of structured message propagation could
+have negative effects on the privacy of the network, since the reduced
+redundancy also means reduced ambiguity and could mean a better
+identification of broadcast initators. Further, a structured, less
+random broadcast intuitively allows for...
