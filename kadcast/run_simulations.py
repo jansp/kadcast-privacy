@@ -49,9 +49,9 @@ KAD_KS = range(20, 60)
 seed_handler.save_seed(RANDOM_SEED)
 
 
-NUM_NODES = [100]
-NUM_TXS = [500]
-num_samples = 5
+NUM_NODES = [10000]
+NUM_TXS = [5000]
+num_samples = 20
 #kad_ks = [20]
 
 # import iplane latencies
