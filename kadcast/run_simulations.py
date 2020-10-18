@@ -49,9 +49,10 @@ KAD_KS = range(20, 60)
 seed_handler.save_seed(RANDOM_SEED)
 
 
-NUM_NODES = [10000]
-NUM_TXS = [5000]
-num_samples = 20
+
+NUM_NODES = [100]
+NUM_TXS = [4]
+num_samples = 40
 #kad_ks = [20]
 
 # import iplane latencies
@@ -77,15 +78,11 @@ for s_i in range(num_samples):
                 env = simpy.Environment()
 
                 ip_list = list(map(ipaddress.ip_address, random.sample(range(4294967295), num_nodes)))
-                id_bytes = [(int(ip)).to_bytes(20, byteorder='big') for ip in ip_list]
+                id_bytes = ((int(ip)).to_bytes(20, byteorder='big') for ip in ip_list)
                 id_list_n = [int(hashlib.sha1(bytestr).hexdigest(), 16) for bytestr in id_bytes]
-
-                #id_list = list(range(num_nodes))
-                #id_list_n = id_list
 
                 spies = random.sample(id_list_n, num_spies)
                 benign_nodes = list(set(id_list_n) - set(spies))
-                #spies = sorted(random.sample(id_list, num_spies))
 
                 # CREATE NODES
                 for i in range(num_nodes):
@@ -94,16 +91,15 @@ for s_i in range(num_samples):
                     id_to_node[id_list_n[i]] = n
                     env.process(n.handle_message())
 
-                ### START NETWORK STABILIZING PHASE
-                env.run(env.now + 1000)
+                ### START NETWORK STABILIZATION PHASE
+                #env.run(env.now + 1000)
                 for ip in ip_to_node:
-                    ip_to_node[ip].bootstrap([ip_list[0]])
-                    env.run(env.now + 1000)
+                    ip_to_node[ip].bootstrap(random.sample(ip_list, 50))
+                    #env.run(env.now + 100)
 
-
-                env.run(env.now + 30000000)
-                ### FINISH NETWOK STABILIZING PHASE
-
+                #env.run(env.now + 300000)
+                env.run()
+                ### FINISH NETWOK STABILIZATION PHASE
 
                 # initialize empty list of sent broadcasts for every benign node
                 true_sources = {}
@@ -119,10 +115,9 @@ for s_i in range(num_samples):
 
                     id_to_node[sender].init_broadcast(Block(block))
                     true_sources[sender_ip].append(block)
-                    env.run(env.now + 20000)
+                    env.run(env.now + 200000)
 
                 env.run()
-                sim_time = env.now
                 ### FINISH BROADCAST PHASE
 
                 ### START DEANONYMIZATION ATTACK PHASE
@@ -142,7 +137,10 @@ for s_i in range(num_samples):
                 #print(block_timestamps)
                 #print(true_sources)
                 #block_timestamps = [id_to_node[i].block_timestamps for i in spies]
-
+                for node in ip_to_node.values():
+                    if NUM_TXS[0] != len(node.blocks):
+                        print("BLOCK MISSING?")
+                        print(node.blocks)
 
 
                 #print(block_timestamps)
@@ -156,7 +154,6 @@ for s_i in range(num_samples):
                 print("%d TXs, %d NODES, %.2f FRACTION SPIES, " % (num_blocks, num_nodes, fraction_spies))
                 print("Precision: %f" % est.p)
                 print("Recall: %f" % est.r)
-                print("Sim Time: %d" % sim_time)
                 #print("Recall (old): %f" % est.r_old)
                 #print("SOURCE IPS")
                 #print(set([ip_list[n] for n in spies]) - set(est.source_ips))
@@ -166,16 +163,11 @@ for s_i in range(num_samples):
                 dict_append["FRAC_SPIES"] = fraction_spies
                 dict_append["PRECISION"] = est.p
                 dict_append["RECALL"] = est.r
-                dict_append["KAD_K"] = 60
+                dict_append["KAD_K"] = 20
                 dict_append["ID_LEN"] = 160
-                dict_append["SIM_TIME"] = sim_time
 
-                #df.to_csv("firstspy200.csv", mode='a', header=None)
                 df = df.append(dict_append, ignore_index=True)
                 #df.to_csv("firstspy_large.csv", mode='a', header=None)
-
-                #for kad_k in kad_ks:
-                    #for id_len in id_lens:
 
 
 df.to_csv(filename)

@@ -1,6 +1,3 @@
-#TODO make better use of inheritance?
-
-
 class BaseMessage:
     def __init__(self, sender, data=None):
         self.sender = sender
@@ -62,7 +59,3 @@ class Forward(BaseMessage):
     def __str__(self):
         return "DANDELION FORWARD"
 
-#class Request(BaseMessage):
-#    def __str__(self):
-#        return "REQUEST"
-#    #TODO
