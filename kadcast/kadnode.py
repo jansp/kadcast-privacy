@@ -21,7 +21,6 @@ class Node:
         self.env = env
         self.connection = Connection(env)
         self.ip_to_node = ip_to_node
-        #self.node_lookup_map = {}  # dict({int: {int: (ipaddress.IPv4Address, int, bool)}})
         self.done_blocks = {}  # block_id: is_done
         self.max_seen_height = {}  # max seen height of block_id, int:int
         self.seen_broadcasts = {}  # int : bool
@@ -29,12 +28,11 @@ class Node:
         self.block_source = {}  # BLOCK_ID: ipaddress.IPv4Address
         self.block_timestamps = {}  # BLOCK_ID: int[timestamp]
         self.non_empty_buckets = set()
-        self.continue_broadcast = env.event()
         self.block_map = {}  # BLOCK_ID: (ipadr, timestamp)
         self.ip = ip
         self.kad_id = kad_id
-        self.max_dist = {}
-        self.queried = {int: []}
+        self.looking_for = set()
+        self.queried = {int: set()}
 
         seed = seed_handler.load_seed()
         random.seed(seed)
@@ -86,10 +84,10 @@ class Node:
         else:  # ip not found in bucket
             if len(bucket) < self.kad_k:
                 bucket.append((ip_b, id_b))
-            #else:
+            else:
                 # TODO ping last recently seen node, drop only if no answer, not always
-                #del bucket[0]
-                #bucket.append((ip_b, id_b))
+                del bucket[0]
+                bucket.append((ip_b, id_b))
 
     def find_k_closest_nodes(self, target_id: int) -> [(ipaddress.IPv4Address, int)]:
         flat = [y for x in self.buckets.values() for y in x]
@@ -207,40 +205,6 @@ class Node:
         k_closest = self.find_k_closest_nodes(target_id)
         self.send_nodes(ip_id_pair[0], target_id, k_closest)
 
-    # def handle_nodes(self, ip_id_pair: (ipaddress.IPv4Address, int), target_id: int, node_list: [(ipaddress.IPv4Address, int)]) -> None:
-    #     if target_id not in self.node_lookup_map:
-    #         return
-    #
-    #     query_map = self.node_lookup_map[target_id]
-    #     query_all = True
-    #
-    #     for elem in node_list:
-    #         #if elem[1] == self.kad_id:
-    #         #    continue
-    #
-    #         self.update_bucket(elem)
-    #
-    #         if elem[1] == target_id:
-    #             # found node id
-    #             del self.node_lookup_map[target_id]
-    #             return
-    #
-    #         dist = distance(elem[1], target_id)
-    #         if dist in query_map.keys():
-    #             continue
-    #
-    #         n = (elem[0], elem[1], False)
-    #         query_map[dist] = n
-    #
-    #         if len(query_map) > self.kad_k:
-    #             if dist != max(query_map):  # newly added dist is not max, we made progress
-    #                 query_all = False
-    #
-    #             del query_map[max(query_map)]
-    #
-    #     self.node_lookup_map[target_id] = dict(sorted(query_map.items(), key=operator.itemgetter(0)))
-    #     self.lookup_node(target_id, query_all)
-
     def handle_forward(self, ip_id_pair: (ipaddress.IPv4Address, int), block: 'Block', visited_hops):
         #print("%d: %s RECEIVED FORWARD %d FROM %s" % (
         # self.env.now, self.ip, block.b_id, ip_id_pair[0]))
@@ -318,157 +282,93 @@ class Node:
             if isinstance(msg, Forward):
                 self.handle_forward((msg.sender.ip, msg.sender.kad_id), msg.block, msg.visited_hops)
 
-    # def init_lookup(self, target_id: int):
-    #     #print("%d: INIT LOOKUP %d -> %d" % (self.env.now, self.kad_id, target_id))
-    #     if target_id in self.node_lookup_map:
-    #         #print("LOOKUP ALREADY IN PROGRESS!")
-    #         return
-    #
-    #     k_closest = self.find_k_closest_nodes(target_id)
-    #     query_dict = {}  # dict({int: (ipaddress.IPv4Address, int, bool)})
-    #
-    #     for (ip, id) in k_closest:
-    #         idx = distance(target_id, id)
-    #         query_dict[idx] = (ip, id, False)
-    #         #print(query_dict[idx])
-    #
-    #     self.node_lookup_map[target_id] = query_dict
-    #
-    #     #print("STARTING LOOKUP WITH FOLLOWING LOOKUP MAP:")
-    #     #print(self.node_lookup_map)
-    #     self.lookup_node(target_id)
-    #
-    # def lookup_node(self, target_id: int, query_all=False):
-    #     if target_id not in self.node_lookup_map:
-    #         return
-    #
-    #     target_bucket = self.id_to_bucket_index(target_id)
-    #
-    #     if target_bucket is not None:
-    #         if target_id in [i[1] for i in self.buckets[target_bucket]]:
-    #             self.terminate_lookup(target_id)
-    #             return  # found in local bucket
-    #
-    #     query_map = self.node_lookup_map[target_id]
-    #
-    #     to_query = self.kad_alpha
-    #     n_queried = 0
-    #
-    #     for elem in query_map.keys():
-    #         if not query_all and to_query == 0:
-    #             break
-    #
-    #         (node_addr, node_id, queried) = query_map[elem]
-    #
-    #         if queried:
-    #             n_queried += 1
-    #             continue
-    #
-    #         #if target_id != self.kad_id:
-    #         #    print("%d: KID: %d Queried %d/%d nodes for LOOKUP %d" % (self.env.now, self.kad_id, n_queried, self.kad_k, target_id))
-    #         #else:
-    #         #    print("%d: KID: %d Queried %d/%d nodes (SELF LOOKUP)" % (self.env.now, self.kad_id, n_queried, self.kad_k))
-    #
-    #         dist = distance(target_id, node_id)
-    #
-    #         self.send_find_node(node_addr, target_id)
-    #         self.node_lookup_map[target_id][dist] = (node_addr, node_id, True)
-    #         #print(self.node_lookup_map[target_id][dist])
-    #         #print(self.node_lookup_map)
-    #
-    #         n_queried += 1
-    #         to_query -= 1
-    #
-    #     if n_queried < self.kad_k:
-    #         return
-    #
-    #     self.env.timeout(5000).callbacks.append(lambda _: self.terminate_lookup(target_id))
-    #
-    # def terminate_lookup(self, target_id: int):
-    #     if target_id not in self.node_lookup_map:
-    #         return
-    #     del self.node_lookup_map[target_id]
-
     def bootstrap(self, ips):
         for ip in ips:
             self.send_ping(ip)
 
         self.env.timeout(0).callbacks.append(lambda _: self.init_lookup(self.kad_id))
         self.env.timeout(3000).callbacks.append(lambda _: self.refresh_buckets())
-        self.env.timeout(3000000).callbacks.append(lambda _: self.refresh_buckets())
+        self.env.timeout(300000).callbacks.append(lambda _: self.refresh_buckets())
         #self.env.timeout(100000).callbacks.append(lambda _: self.refresh_buckets())
 
     def bucket_refresh(self, filterlist):
-        if filterlist is not None and filterlist:
-            id_to_find = filterlist.pop()
+        for id_to_find in filterlist:
+            yield self.env.timeout(400)
             if self.id_to_bucket_index(id_to_find) not in self.non_empty_buckets:
                 self.init_lookup(id_to_find)
 
-            yield self.env.timeout(0)
-            self.env.process(self.bucket_refresh(list(filterlist)))
+        #if filterlist is not None and filterlist:
+        #    id_to_find = filterlist.pop()
+        #    if self.id_to_bucket_index(id_to_find) not in self.non_empty_buckets:
+        #        self.init_lookup(id_to_find)
+
+        #    self.env.process(self.bucket_refresh(filterlist))
 
     def refresh_buckets(self):
         min_max_list_all = ((2 ** i, 2 ** (i + 1)) for i in range(KAD_ID_LEN))
         itermap = map(lambda z: self.kad_id ^ random.randrange(*z), min_max_list_all)
-        filterlist = filter(lambda y: self.id_to_bucket_index(y) not in self.non_empty_buckets, itermap)
-        self.env.process(self.bucket_refresh(list(filterlist)))
+        filterlist = list(filter(lambda y: self.id_to_bucket_index(y) not in self.non_empty_buckets, itermap))
+        bucket_proc = self.env.process(self.bucket_refresh(filterlist))
         #for id_to_find in filterlist:
-            #self.init_lookup(id_to_find)
-
-            #self.env.timeout(0).callbacks.append(lambda _: self.init_lookup(id_to_find))
-
-        #self.env.process(self.bucket_refresh(list(filterlist)))
+        #    self.init_lookup(id_to_find)
 
     def init_lookup(self, target_id):
-        if target_id in self.max_dist:
+        if target_id in self.looking_for:
             return
 
         k_closest = self.find_k_closest_nodes(target_id)
 
-        self.max_dist[target_id] = 0
-        self.queried[target_id] = []
+        self.looking_for.add(target_id)
+        self.queried[target_id] = set()
 
-        for (ip, id) in k_closest:
+        for (ip, id) in k_closest[:self.kad_alpha]:
             self.send_find_node(ip, target_id)
-            self.queried[target_id].append(id)
-            if distance(target_id, id) > self.max_dist[target_id]:
-                self.max_dist[target_id] = distance(target_id, id)
+            self.queried[target_id].add(id)
 
     def handle_nodes(self, ip_id_pair: (ipaddress.IPv4Address, int), target_id: int, node_list: [(ipaddress.IPv4Address, int)]) -> None:
-        if target_id not in self.max_dist:
+        if target_id not in self.looking_for:
+            #print("NOT LOOKING FOR THIS ID (ANYMORE)")
             return
 
-        # TODO only send find_node to alpha closest nodes to target, repeat until we don't improve our k closest known nodes to target
+        if not node_list:
+            return
+
+        k_closest_old = self.find_k_closest_nodes(target_id)
 
         for elem in node_list:
             self.update_bucket(elem)
-
             if elem[1] == target_id:
                 # found node id
+                #print("found node id")
                 del self.queried[target_id]
-                del self.max_dist[target_id]
+                self.looking_for.remove(target_id)
                 return
 
-            dist = distance(elem[1], target_id)
+        k_closest_new = self.find_k_closest_nodes(target_id)
+        if distance(k_closest_new[-1][1], target_id) < distance(k_closest_old[-1][1], target_id):
+            # progress
+            node_list_ids = (y for (x, y) in node_list)
 
-            if len(self.queried[target_id]) >= self.kad_k:
-                if dist < self.max_dist[target_id]:
-                    if elem[1] not in self.queried[target_id]:
-                        self.send_find_node(elem[0], target_id)
-                    ### TODO
-                    dists = map(lambda x: distance(x, target_id), self.queried.values())
-                    del self.queried[target_id]
-                    del self.max_dist[target_id]
-                    #return
-                    ### TODO
-            else:
-                if elem[1] not in self.queried[target_id]:
-                    self.send_find_node(elem[0], target_id)
-            #if dist < self.max_dist[target_id]:
-            #    if elem[1] not in self.queried[target_id]:
-            #        self.send_find_node(elem[0], target_id)
+            to_query_ids_filter = filter(lambda x: x not in self.queried[target_id], node_list_ids)
 
-            self.queried[target_id].append(elem[1])
+            to_query_ids = itertools.islice(to_query_ids_filter, self.kad_alpha)
+            #print(len(list(to_query_ids)))
+
+            to_query_nodes = filter(lambda xy: xy[1] in to_query_ids, node_list)
+
+            for (ip, id) in to_query_nodes:
+                self.queried[target_id].add(id)
+                self.send_find_node(ip, target_id)
+        else:
+            #print("NO PROGRESS looking up %d, stopping lookup..." % target_id)
+            #del self.queried[target_id]
+            self.looking_for.remove(target_id)
+            #self.env.timeout(1000).callbacks.append(lambda _: self.stop_lookup(target_id))
+
+    def stop_lookup(self, target_id):
+        if target_id in self.looking_for:
+            self.looking_for.remove(target_id)
+            #print("Stopped lookup of %d" % target_id)
 
 
 def distance(id_a: int, id_b: int) -> int:

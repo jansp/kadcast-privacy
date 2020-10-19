@@ -50,9 +50,9 @@ seed_handler.save_seed(RANDOM_SEED)
 
 
 
-NUM_NODES = [100]
-NUM_TXS = [4]
-num_samples = 40
+NUM_NODES = [1000]
+NUM_TXS = [400]
+num_samples = 30
 #kad_ks = [20]
 
 # import iplane latencies
@@ -93,14 +93,18 @@ for s_i in range(num_samples):
 
                 ### START NETWORK STABILIZATION PHASE
                 #env.run(env.now + 1000)
+                print("Starting bootstrapping phase")
                 for ip in ip_to_node:
-                    ip_to_node[ip].bootstrap(random.sample(ip_list, 50))
+                    #ip_to_node[ip].bootstrap([ip_list[0]])
+                    #rs = random.sample(ip_list, int(len(ip_list)/10))
+                    rs = random.sample(ip_list, 30)
+                    ip_to_node[ip].bootstrap(rs)
                     #env.run(env.now + 100)
 
                 #env.run(env.now + 300000)
                 env.run()
                 ### FINISH NETWOK STABILIZATION PHASE
-
+                print("Finished bootstrapping")
                 # initialize empty list of sent broadcasts for every benign node
                 true_sources = {}
                 #for id_n in benign_nodes:
