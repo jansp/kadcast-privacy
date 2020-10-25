@@ -8,7 +8,7 @@ class FirstSpyEstimator:
         self.r_old = 0.0
 
         benign_nodes = len(true_sources)
-        observer_map = {}  # BLOCK_ID: observer
+        self.observer_map = {}  # BLOCK_ID: observer
 
         txs = sorted([item for sublist in list(true_sources.values()) for item in sublist])
 
@@ -22,34 +22,34 @@ class FirstSpyEstimator:
                     first_time = obs_time
                     from_ip = spy_data[tx][0]
                     tx_ip_map[tx] = from_ip
-                    observer_map[tx] = spy
+                    self.observer_map[tx] = spy
 
             #print("Mapped TX %d to IP %s, first spy: %d" % (tx, from_ip, observer_map[tx]))
 
 
-        ip_tx_map = {} # Mapping created by adversary
+        self.ip_tx_map = {} # Mapping created by adversary
 
         for ip in true_sources.keys():
-            ip_tx_map[ip] = []
+            self.ip_tx_map[ip] = []
 
         for tx, ip in tx_ip_map.items():
-            if ip not in ip_tx_map:
-                ip_tx_map[ip] = []
-            ip_tx_map[ip].append(tx)
+            if ip not in self.ip_tx_map:
+                self.ip_tx_map[ip] = []
+            self.ip_tx_map[ip].append(tx)
 
         for ip in true_sources.keys():
             fp = 0
             fn = 0
             tp = 0
             for tx in true_sources[ip]:
-                if tx in ip_tx_map[ip]:
+                if tx in self.ip_tx_map[ip]:
                     tp += 1
                 else:
                     fn += 1
 
             if tp == 0:
                 continue
-            for tx in ip_tx_map[ip]:
+            for tx in self.ip_tx_map[ip]:
                 if tx not in true_sources[ip]:
                     fp += 1
 
