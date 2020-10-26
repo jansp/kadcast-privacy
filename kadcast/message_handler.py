@@ -339,15 +339,13 @@ def update_bucket(ip_id_pair_a, ip_id_pair_b: (IPv4Address, int)):
     n = ip_to_node[ip_a]
     buckets = n.buckets
 
-    #heapq.heappush(n.node_heap, (distance(id_a, id_b), ip_id_pair_b))
-
     bucket_idx = id_to_bucket_index(id_a, id_b)
-    try:
-        bucket = buckets[bucket_idx]
-        if len(bucket) < kad_k:
-            bucket[ip_b] = id_b
-        else:
-            bucket.popitem(last=False)
-            bucket[ip_b] = id_b
-    except KeyError:  # bucket doesn't exist yet
+    if bucket_idx not in buckets:
         buckets[bucket_idx] = OrderedDict({ip_b: id_b})
+        return
+
+    bucket = buckets[bucket_idx]
+
+    bucket[ip_b] = id_b
+    if len(bucket) > kad_k:
+        bucket.popitem(last=False)
