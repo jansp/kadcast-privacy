@@ -2,8 +2,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
-import scipy.stats
-import sys
 
 # Create the parser
 parser = argparse.ArgumentParser(description='Draw plot')

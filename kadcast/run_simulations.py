@@ -14,6 +14,7 @@ from message_handler import handle_message, init_ipnode, init_dandelion, init_br
 from message_handler import init_env as m_init_env
 from bootstrap import init_env as b_init_env
 from connection import init_env as c_init_env
+#from gmpy_cffi import mpz
 
 
 def init_env(venv):
@@ -58,8 +59,8 @@ FRACTION_SPIES = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 seed_handler.save_seed(RANDOM_SEED)
 
 
-NUM_NODES = 1000  # daily active nodes etherscan.io
-NUM_TXS = 4000
+NUM_NODES = 100  # daily active nodes etherscan.io
+NUM_TXS = 40
 num_samples = 1
 
 
