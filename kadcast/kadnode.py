@@ -3,12 +3,13 @@ from ipaddress import IPv4Address
 
 
 def random_ip_from_all_peers(n, visited_hops=None):
+    buckets = n.buckets
     if visited_hops is None:
         visited_hops = set()
 
     all_ips = set()
-    for i in n.non_empty_buckets:
-        for ip_id_pair in n.buckets[i]:
+    for i in buckets:
+        for ip_id_pair in buckets[i].items():
             all_ips.add(ip_id_pair[0])
 
     if not all_ips.difference(visited_hops):
@@ -32,7 +33,6 @@ class Node:
         self.looking_for = {}
         self.queried = {int: set()}
         self.buckets = {}  # bucket: {ip: id}, starts from 0
-        #self.node_heap = []
 
     def __hash__(self):
         return hash(self.ip_id_pair())

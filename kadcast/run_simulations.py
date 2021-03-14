@@ -9,12 +9,16 @@ from helpers import Block
 import estimators
 import hashlib
 import argparse
+import json
 import pickle
 from message_handler import handle_message, init_ipnode, init_dandelion, init_broadcast
 from message_handler import init_env as m_init_env
 from bootstrap import init_env as b_init_env
 from connection import init_env as c_init_env
-#from gmpy_cffi import mpz
+import os
+import numpy as np
+import gevent
+
 
 
 def init_env(venv):
@@ -48,7 +52,7 @@ filename = args.filename
 filename = "csv/"+filename
 
 
-RANDOM_SEED = 42
+RANDOM_SEED = seed_handler.load_seed("seed_val.txt")+hash(filename)
 SIM_DURATION = 200000000
 USE_DANDELION = use_dand
 DANDELION_Q = dand_q
@@ -56,16 +60,31 @@ DANDELION_Q = dand_q
 FRACTION_SPIES = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
 
-seed_handler.save_seed(RANDOM_SEED)
+#seed_handler.save_seed(RANDOM_SEED)
 
 
-NUM_NODES = 100  # daily active nodes etherscan.io
-NUM_TXS = 40
-num_samples = 1
+NUM_NODES = 1000
+NUM_TXS = 4000
+num_samples = 3
+
+proc_list = []
+
+
+def init_message_handling(num_nodes_x, ip_list_x, id_list_n_x):
+    for i in range(num_nodes_x):
+        n = Node(ip_list_x[i], id_list_n_x[i])
+        ip_to_node[ip_list_x[i]] = n
+        id_to_node[id_list_n_x[i]] = n
+
+    zips = np.array([handle_message(zips) for zips in zip(ip_list_x, id_list_n_x)])
+    for z in zips:
+        proc_list.append(env.process(z))
 
 
 df = pd.DataFrame(columns=["TXS", "NODES", "FRAC_SPIES", "PRECISION", "RECALL", "KAD_K", "ID_LEN"])
 
+folder = str(NUM_NODES) + "_" + str(NUM_TXS) + "_" + str(USE_DANDELION) + "_" + str(DANDELION_Q)+"/"
+#os.mkdir("pickle/"+folder)
 
 for s_i in range(num_samples):
     random.seed(RANDOM_SEED+s_i)
@@ -89,13 +108,9 @@ for s_i in range(num_samples):
         benign_nodes = list(set(id_list_n) - set(spies))
 
         # CREATE NODES
-        process = env.process
         init_env(env)
-        for i in range(num_nodes):
-            n = Node(ip_list[i], id_list_n[i])
-            ip_to_node[ip_list[i]] = n
-            id_to_node[id_list_n[i]] = n
-            process(handle_message((ip_list[i], id_list_n[i])))
+
+        init_message_handling(num_nodes, ip_list, id_list_n)
 
         init_ipnode(ip_to_node)
         init_dandelion(USE_DANDELION, DANDELION_Q)
@@ -104,16 +119,18 @@ for s_i in range(num_samples):
         #print("Starting bootstrapping phase")
 
         #print("START BOOTSTRAPPING")
+
         for i_n in ip_to_node.values():
             rs = sample(ip_list, 30)
             bootstrap(i_n, rs)
             env.run(env.now + 100)
 
+
         env.run()
         #print("END BOOTSTRAPPING")
         ### FINISH NETWOK STABILIZATION PHASE
 
-        # initialize empty list of sent broadcasts for every benign node
+        # initialize empty list of sent broadcasts
         true_sources = {}
 
         #for node in ip_to_node.values():
@@ -125,9 +142,11 @@ for s_i in range(num_samples):
             if sender_ip not in true_sources.keys():
                 true_sources[sender_ip] = []
 
+            #print("%s sending TX %d..." % (id_to_node[sender].ip_id_pair()[0], block))
+            #print("Spies: %s" % [id_to_node[s].ip_id_pair()[0] for s in spies])
             init_broadcast(id_to_node[sender].ip_id_pair(), Block(block))
             true_sources[sender_ip].append(block)
-            env.run(env.now + 200000)
+            #env.run(env.now + 30000)
 
         env.run()
         ### FINISH BROADCAST PHASE
@@ -151,11 +170,14 @@ for s_i in range(num_samples):
         #print(block_timestamps)
         #print(true_sources)
         #block_timestamps = [id_to_node[i].block_timestamps for i in spies]
+        mi = False
         for node in ip_to_node.values():
             if NUM_TXS != len(node.blocks):
-                print("BLOCK MISSING?")
+                #print("BLOCK MISSING?")
+                mi = True
                 #print(node.blocks)
-
+        if mi:
+            continue
 
         #print(block_timestamps)
         #spy_mapping = [id_to_node[i].block_source for i in spies]
@@ -165,21 +187,69 @@ for s_i in range(num_samples):
         #    print("Mapped TX %d to ip %s, spy: %s", (tx, est.tx_ip_map[tx], ip_list[id_list_n.index(est.observer_map[tx])]))
 
         # TODO pickle save: est.ip_tx_map, est.observer_map, true_sources, buckets of all nodes
-        #f1 = open("pickle/ip_tx_map_"+str(s_i)+"_"+str(fraction_spies), "wb")
-        #pickle.dump(est.ip_tx_map, f1)
-        #f1.close()
-        #f2 = open("pickle/observer_map_"+str(s_i)+"_"+str(fraction_spies), "wb")
-        #pickle.dump(est.observer_map, f2)
-        #f2.close()
-        #f3 = open("pickle/true_sources_"+str(s_i)+"_"+str(fraction_spies), "wb")
-        #pickle.dump(true_sources, f3)
-        #f3.close()
 
-        #for node in ip_to_node.values():
-        #    print(node.buckets)
-        #    f4 = open("pickle/buckets_"+str(node.kad_id)+"_"+str(s_i), "wb")
-        #    pickle.dump(node.buckets, f4)
-        #    f4.close()
+
+        # print("Save observations to file")
+        #
+        # stringtx = {}
+        # string_true_sources = {}
+        #
+        # for item in est.ip_tx_map.items():
+        #     stringtx[str(item[0])] = item[1]
+        #
+        # for item in true_sources.items():
+        #     string_true_sources[str(item[0])] = item[1]
+        #
+        # f1 = open("pickle/" + folder + "ip_tx_map_" + str(s_i) + "_" + str(fraction_spies) + ".json", "w")
+        # json.dump(stringtx, f1)
+        # f1.close()
+        #
+        # f2 = open("pickle/"+folder+"observer_map_"+str(s_i)+"_"+str(fraction_spies) + ".json", "w")
+        # json.dump(est.observer_map, f2)
+        # #pickle.dump(est.observer_map, f2)
+        # f2.close()
+        #
+        # f3 = open("pickle/"+folder+"true_sources_"+str(s_i)+"_"+str(fraction_spies) + ".json", "w")
+        # json.dump(string_true_sources, f3)
+        # f3.close()
+        #
+        # f4 = open("pickle/"+folder+"spies_"+str(s_i)+"_"+str(fraction_spies) + ".json", "w")
+        # json.dump(spies, f4)
+        # f4.close()
+        #
+        # print("Save nodes to file")
+        # #os.mkdir("pickle/"+folder+"nodes_"+str(s_i)+"_"+str(fraction_spies) + "/")
+        # ip_id = {}
+        # for i in range(num_nodes):
+        #     ip_id[str(ip_list[i])] = id_list_n[i]
+        #
+        # f5 = open("pickle/"+folder+"ip_to_id_"+str(s_i)+"_"+str(fraction_spies) + ".json", "w")
+        # json.dump(ip_id, f5)
+        # f5.close()
+
+        # nodes_dict = {}
+        # d = "pickle/" + folder + "nodes_" + str(s_i) + "_" + str(fraction_spies)+ ".json"
+        # for n in ip_to_node.values():
+        #     nodes_dict["BLOCKHEIGHT " + str(n.kad_id)] = n.block_height
+        #     bs = {}
+        #     for i in n.block_source.items():
+        #         bs[i[0]] = str(i[1])
+        #
+        #     nodes_dict["BLOCKSOURCE " + str(n.kad_id)] = bs
+        #
+        #     nodes_dict["BLOCKTIMESTAMPS " + str(n.kad_id)] = n.block_timestamps
+        #     buckets = {}
+        #     for i in n.buckets:
+        #         m = {}
+        #         for elem in n.buckets[i].items():
+        #             m[str(elem[0])] = elem[1]
+        #         buckets[i] = m
+        #
+        #     nodes_dict["BUCKETS " + str(n.kad_id)] = buckets
+        #
+        # f_n = open(d, "w")
+        # json.dump(nodes_dict, f_n)
+        # f_n.close()
         #for ip in est.ip_tx_map:
         #    for tx in est.ip_tx_map[ip]:
         #        n = est.observer_map[tx]
@@ -211,6 +281,7 @@ for s_i in range(num_samples):
                        "RECALL": est.r, "KAD_K": 20, "ID_LEN": 160}
 
         df = df.append(dict_append, ignore_index=True)
+        proc_list = []
         #df.to_csv("firstspy_large.csv", mode='a', header=None)
 
 

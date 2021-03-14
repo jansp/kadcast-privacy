@@ -5,10 +5,8 @@ from random import uniform, sample
 import functools
 from kadnode import random_ip_from_all_peers
 from connection import Connection
-from collections import OrderedDict, deque
+from collections import OrderedDict
 from itertools import islice
-import heapq
-
 
 class SendingToSelf(Exception): pass
 
@@ -20,13 +18,13 @@ ip_to_node = {}
 connections = {}
 latency = None
 
-
 @functools.lru_cache(maxsize=1)
 def init_env(environment):
     global env
     env = environment
     global latency
     latency = latencies()
+
 
 
 @functools.lru_cache(maxsize=1)
@@ -104,26 +102,20 @@ def send_forward_msg(ip_id, ip: IPv4Address, block: 'Block', visited_hops):
 
 
 # MESSAGE HANDLING
-def handle_ping(ip_id, ip_id_pair: (IPv4Address, int)) -> None:
-    update_bucket(ip_id, ip_id_pair)
-    send_pong(ip_id, ip_id_pair[0])
+def handle_ping(ip_id, msg) -> None:
+    update_bucket(ip_id, (msg.sender[0], msg.sender[1]))
+    send_pong(ip_id, msg.sender[0])
 
 
-def handle_pong(ip_id, ip_id_pair: (IPv4Address, int)) -> None:
-    update_bucket(ip_id, ip_id_pair)
+def handle_pong(ip_id, msg) -> None:
+    update_bucket(ip_id, (msg.sender[0], msg.sender[1]))
 
 
-def handle_find_node(ip_id, ip_id_pair: (IPv4Address, int), target_id: int) -> None:
+def handle_find_node(ip_id, msg) -> None:
     n = ip_to_node[ip_id[0]]
-    update_bucket(ip_id, ip_id_pair)
-    k_closest = find_k_closest_nodes(n, target_id)
-    #k_new = find_k_closest_nodes_new(n, target_id)
-    #print("K OLD")
-    #print(k_closest)
-    #print("K NEW")
-    #print(k_new)
-    #print("%d %d" % (len(k_new), len(k_closest)))
-    send_nodes(ip_id, ip_id_pair[0], target_id, k_closest)
+    update_bucket(ip_id, (msg.sender[0], msg.sender[1]))
+    k_closest = find_k_closest_nodes(n, msg.target_id)
+    send_nodes(ip_id, msg.sender[0], msg.target_id, k_closest)
 
 
 def init_lookup(n, target_id):
@@ -139,8 +131,10 @@ def init_lookup(n, target_id):
         add(k_id)
 
 
-def handle_nodes(ip_id, ip_id_pair: (IPv4Address, int), target_id: int, node_list: [(IPv4Address, int)]) -> None:
+def handle_nodes(ip_id, msg): #ip_id_pair: (IPv4Address, int), target_id: int, node_list: [(IPv4Address, int)]) -> None:
     ip_a, kad_id_a = ip_id
+    target_id = msg.target_id
+    node_list = msg.node_list
     recv = ip_to_node[ip_a]
 
     if not node_list:
@@ -198,14 +192,17 @@ def stop_lookup(n, target_id):
         #print(e)
 
 
-def handle_forward(ip_id, ip_id_pair: (IPv4Address, int), block: 'Block', visited_hops):
+def handle_forward(ip_id, msg): #ip_id_pair: (IPv4Address, int), block: 'Block', visited_hops):
     ip = ip_id[0]
     recv = ip_to_node[ip]
+    block = msg.block
+    visited_hops = msg.visited_hops
+    ip_id_pair = msg.sender
     #print("%d: %s RECEIVED FORWARD %d FROM %s" % (
-    # recv.env.now, recv.ip, block.b_id, ip_id_pair[0]))
+    # env.now, recv.ip, block.b_id, ip_id_pair[0]))
 
     if block.b_id not in recv.block_source:
-        add_block(recv, block.b_id, ip, -1)  # height -1 when received dur forward
+        add_block(recv, block.b_id, ip_id_pair[0], -1)  # height -1 when received dur forward
     unif = uniform(0, 1)
     if unif <= dand_q:
         init_broadcast(ip_id, block, anon_phase=False)
@@ -218,8 +215,11 @@ def handle_forward(ip_id, ip_id_pair: (IPv4Address, int), block: 'Block', visite
             forward_block(ip_id, block, visited_hops)
 
 
-def handle_broadcast(ip_id, ip_id_pair: (IPv4Address, int), block: 'Block', height: int) -> None:
+def handle_broadcast(ip_id, msg): #ip_id_pair: (IPv4Address, int), block: 'Block', height: int) -> None:
     #print("%d: %s RECEIVED BROADCAST %d FROM %s AT HEIGHT %d " % (env.now, recv.ip, block.b_id, ip_id_pair[0], height))
+    block = msg.block
+    ip_id_pair = msg.sender
+    height = msg.height
     recv = ip_to_node[ip_id[0]]
     block_id = block.b_id
     if block_id in recv.seen_broadcasts and recv.seen_broadcasts[block_id]:
@@ -227,10 +227,8 @@ def handle_broadcast(ip_id, ip_id_pair: (IPv4Address, int), block: 'Block', heig
 
     recv.seen_broadcasts[block_id] = True
 
-    ip = ip_id_pair[0]
-
     if block_id not in recv.block_source:
-        add_block(recv, block_id, ip, height)
+        add_block(recv, block_id, ip_id_pair[0], height)
 
     if block_id in recv.blocks:
         return
@@ -246,36 +244,24 @@ def handle_broadcast(ip_id, ip_id_pair: (IPv4Address, int), block: 'Block', heig
     broadcast_block(recv, block)
 
 
+msg_handler_dict = {FindNode: handle_find_node, Nodes: handle_nodes, Ping: handle_ping, Pong: handle_pong,
+                Broadcast: handle_broadcast, Forward: handle_forward}
+
+
 def handle_message(ip_id):
     conn_get = connections[ip_id[0]].get
 
     while True:
         msg = yield conn_get()
-        sender_ip = msg.sender[0]
 
-        if sender_ip == ip_id[0]:
+        if msg.sender[0] == ip_id[0]:
             print("Sending message to self?")
-            print(msg)
-            print("%s %s" % (sender_ip, ip_id[0]))
             return
-
-        sender_id = msg.sender[1]
 
         #print("Node %d with IP %s received %s message from node %d with IP %s at time %d" % (recv_ipid[1], recv_ipid[0], msg, msg.sender[0], msg.sender[1], env.now))
         # print("%d: RECEIVED %s %s <- %s (%d <- %d)" % (n.env.now, msg, n.ip, msg.sender.ip, n.kad_id, msg.sender.kad_id))
 
-        if isinstance(msg, FindNode):
-            handle_find_node(ip_id, (sender_ip, sender_id), msg.target_id)
-        elif isinstance(msg, Nodes):
-            handle_nodes(ip_id, (sender_ip, sender_id), msg.target_id, msg.node_list)
-        elif isinstance(msg, Ping):
-            handle_ping(ip_id, (sender_ip, sender_id))
-        elif isinstance(msg, Pong):
-            handle_pong(ip_id, (sender_ip, sender_id))
-        elif isinstance(msg, Broadcast):
-            handle_broadcast(ip_id, (sender_ip, sender_id), msg.block, msg.height)
-        elif isinstance(msg, Forward):
-            handle_forward(ip_id, (sender_ip, sender_id), msg.block, msg.visited_hops)
+        msg_handler_dict[type(msg)](ip_id, msg)
 
 
 def forward_block(ip_id, block: 'Block', visited_hops=None):

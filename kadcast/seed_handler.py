@@ -9,6 +9,5 @@ def save_seed(val, filename=seed_val_file):
 
 @functools.lru_cache(maxsize=1)
 def load_seed(filename=seed_val_file):
-    print("LOADING SEED")
     with open(filename, "rb") as f:
         return int(f.read())

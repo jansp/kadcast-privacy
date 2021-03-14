@@ -1,12 +1,12 @@
-import simpy
-from itertools import groupby, cycle, chain, islice, zip_longest
+from itertools import cycle, chain, islice
 import functools
 from ipaddress import IPv4Address
 from random import shuffle
-import heapq
-import operator
+from operator import itemgetter
+from functools import cmp_to_key
+import numpy as np
 
-kad_k = 20
+kad_k = 60
 kad_alpha = 3
 kad_beta = 1
 
@@ -51,9 +51,10 @@ def latencies():
 
 def find_k_closest_nodes(n, target_id: int) -> [(IPv4Address, int)]:
     # TODO can optimize?
-    buckets = n.buckets
-    flat = (b.items() for b in buckets.values())
-    flat = chain.from_iterable(flat)
-    flat_sorted = sorted(flat, key=lambda x: distance(target_id, x[1]))
-    return flat_sorted[:kad_k]
+    def fun(x):
+        return distance(target_id, x[1])
 
+    flat = map(dict.items, n.buckets.values())
+    flat = chain.from_iterable(flat)
+    flat_sorted = sorted(flat, key=fun)
+    return flat_sorted[:kad_k]

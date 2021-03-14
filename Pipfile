@@ -19,6 +19,8 @@ hashlib = "*"
 ordereddict = "*"
 gmpy = "*"
 gmpy2 = "*"
+asyncio = "*"
+uvloop = "*"
 
 [requires]
 python_version = "3.8"
